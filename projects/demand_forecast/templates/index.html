@@ -1,0 +1,138 @@
+{% extends "shared/templates/base.html" %}
+{% block title %}Прогноз спроса · LADA Цифра{% endblock %}
+
+{% block content %}
+<section class="lc-hero">
+  <p class="lc-hero__eyebrow">Проект 05 · Прогностические модели потребности</p>
+  <h1 class="lc-hero__title">Прогноз потребности: Хольт-Уинтерс, коридор и план закупки</h1>
+  <p class="lc-hero__lead">
+    Аддитивная модель раскладывает месячный ряд на уровень, тренд и сезонность, прогнозирует
+    потребность на горизонт до 12 месяцев и переводит её в бюджет. Качество проверяется
+    на ретроспективе метрикой MAPE, а не «на глаз».
+  </p>
+  <div class="lc-hero__meta">
+    <span class="lc-chip lc-chip--dark">Holt-Winters</span>
+    <span class="lc-chip">MAPE на бэктесте</span>
+    <span class="lc-chip lc-chip--accent">план закупки</span>
+    <span class="lc-chip">только stdlib</span>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--tight" id="kpi">
+    <div class="lc-card"><span class="lc-card__label">MAPE</span><span class="lc-card__value" id="kpi-mape">—</span><span class="lc-card__note">ошибка на ретроспективе</span></div>
+    <div class="lc-card"><span class="lc-card__label">Прогноз на горизонт</span><span class="lc-card__value" id="kpi-units">—</span><span class="lc-card__note">позиций суммарно</span></div>
+    <div class="lc-card"><span class="lc-card__label">Бюджет</span><span class="lc-card__value" id="kpi-budget">—</span><span class="lc-card__note">по средней цене месяца</span></div>
+    <div class="lc-card lc-card--dark"><span class="lc-card__label">История</span><span class="lc-card__value" id="kpi-history">—</span><span class="lc-card__note">месяцев в ряду</span></div>
+  </div>
+  <p class="lc-note">
+    Временная шкала — синтетическая: даты публикаций восстановлены детерминированной сезонной
+    моделью из реальных объявлений. Метод и пайплайн настоящие, сезонность — демонстрационная.
+  </p>
+</section>
+
+<section class="lc-section">
+  <div class="lc-toolbar">
+    <label class="lc-card__label" for="horizon">Горизонт</label>
+    <select class="lc-select" id="horizon">
+      <option value="3">3 месяца</option>
+      <option value="6" selected>6 месяцев</option>
+      <option value="9">9 месяцев</option>
+      <option value="12">12 месяцев</option>
+    </select>
+  </div>
+  <div class="lc-chart">
+    <div class="lc-chart__head">
+      <h2 class="lc-chart__title">История и прогноз</h2>
+      <p class="lc-chart__hint">объявления в месяц · коридор ±1.96σ</p>
+    </div>
+    <div id="chart"></div>
+    <div class="lc-legend">
+      <span class="lc-legend__item"><span class="lc-legend__dot" style="background:#000"></span>факт</span>
+      <span class="lc-legend__item"><span class="lc-legend__dot" style="background:#ff5b06"></span>прогноз</span>
+      <span class="lc-legend__item"><span class="lc-legend__dot" style="background:#ffd8c2"></span>коридор</span>
+    </div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">План по месяцам</h2>
+        <p class="lc-chart__hint">прогноз и границы коридора</p>
+      </div>
+      <div class="lc-table-wrap">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Месяц</th><th class="lc-table__num">Прогноз</th><th class="lc-table__num">Нижняя</th><th class="lc-table__num">Верхняя</th></tr></thead>
+          <tbody id="plan-body"><tr><td colspan="4" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Бэктест</h2>
+        <p class="lc-chart__hint">факт против прогноза на последних месяцах</p>
+      </div>
+      <div id="backtest-chart"></div>
+      <p class="lc-note" id="backtest-note"></p>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  var horizonNode = document.getElementById("horizon");
+
+  function drawBand(history, forecast) {
+    var palette = LCCharts.palette;
+    var historyPoints = history.map(function (point) { return { x: point.x, y: point.y }; });
+    var forecastPoints = forecast.map(function (point) { return { x: point.x, y: point.y }; });
+    var upper = forecast.map(function (point) { return { x: point.x, y: point.high }; });
+    var lower = forecast.map(function (point) { return { x: point.x, y: point.low }; });
+    var joined = [{ x: history[history.length - 1].x, y: history[history.length - 1].y }].concat(forecastPoints);
+    LCCharts.line(document.getElementById("chart"), [
+      { name: "коридор сверху", color: "#ffd8c2", points: upper },
+      { name: "коридор снизу", color: "#ffd8c2", points: lower },
+      { name: "факт", color: palette[0], points: historyPoints },
+      { name: "прогноз", color: palette[1], points: joined }
+    ], { height: 340 });
+  }
+
+  function loadData() {
+    var horizon = horizonNode.value;
+    LC.api("/api/forecast/series?horizon=" + horizon).then(function (data) {
+      document.getElementById("kpi-mape").textContent = LC.pct(data.mape, 2);
+      document.getElementById("kpi-units").textContent = LC.num(data.plan.units);
+      document.getElementById("kpi-budget").textContent = LC.money(data.plan.budget_mln * 1000000);
+      document.getElementById("kpi-history").textContent = LC.num(data.history.length);
+      drawBand(data.history, data.forecast);
+      LC.table(document.getElementById("plan-body"), data.forecast, function (item) {
+        return "<td>" + item.x + "</td>" +
+          '<td class="lc-table__num">' + LC.num(Math.round(item.y)) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(Math.round(item.low)) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(Math.round(item.high)) + "</td>";
+      });
+    });
+  }
+
+  function loadBacktest() {
+    LC.api("/api/forecast/backtest?horizon=" + horizonNode.value).then(function (data) {
+      LCCharts.line(document.getElementById("backtest-chart"), [
+        { name: "факт", color: "#000000", points: data.actual.map(function (value, index) { return { x: "t" + index, y: value }; }) },
+        { name: "прогноз", color: "#ff5b06", points: data.predicted.map(function (value, index) { return { x: "t" + index, y: value }; }) }
+      ], { height: 260 });
+      document.getElementById("backtest-note").textContent = "MAPE " + LC.pct(data.mape, 2) + " на горизонте " + data.horizon + " мес.";
+    });
+  }
+
+  horizonNode.addEventListener("change", function () {
+    loadData();
+    loadBacktest();
+  });
+
+  loadData();
+  loadBacktest();
+})();
+</script>
+{% endblock %}

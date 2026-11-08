@@ -1,0 +1,181 @@
+{% extends "shared/templates/base.html" %}
+{% block title %}Товарная матрица · LADA Цифра{% endblock %}
+
+{% block content %}
+<section class="lc-hero">
+  <p class="lc-hero__eyebrow">Проект 04 · Проектирование аналитических моделей</p>
+  <h1 class="lc-hero__title">Товарная матрица: ABC по ценности × XYZ по стабильности спроса</h1>
+  <p class="lc-hero__lead">
+    Каждая модель получает класс по вкладу в оборот и по предсказуемости спроса. Девять ячеек
+    матрицы — девять готовых решений: что усиливать контентом, что тестировать акциями,
+    а что выводить из матрицы. Пробелы считаются сверкой каталога с живыми объявлениями.
+  </p>
+  <div class="lc-hero__meta">
+    <span class="lc-chip lc-chip--dark">ABC 80/95</span>
+    <span class="lc-chip">CV по месяцам</span>
+    <span class="lc-chip lc-chip--accent">9 решений</span>
+    <span class="lc-chip">пробелы каталога</span>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--tight" id="kpi">
+    <div class="lc-card"><span class="lc-card__label">Моделей в матрице</span><span class="lc-card__value" id="kpi-models">—</span></div>
+    <div class="lc-card"><span class="lc-card__label">Оборот, млн</span><span class="lc-card__value" id="kpi-value">—</span></div>
+    <div class="lc-card"><span class="lc-card__label">Пробелов в каталоге</span><span class="lc-card__value" id="kpi-gaps">—</span><span class="lc-card__note">позиции без объявлений</span></div>
+    <div class="lc-card lc-card--dark"><span class="lc-card__label">Вне каталога</span><span class="lc-card__value" id="kpi-orphans">—</span><span class="lc-card__note">моделей с объявлениями</span></div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-section__head">
+    <h2 class="lc-section__title">Матрица решений</h2>
+    <p class="lc-section__hint">строки — ценность (A/B/C), столбцы — стабильность (X/Y/Z)</p>
+  </div>
+  <div class="lc-matrix" id="matrix">
+    <div class="lc-matrix__corner">ABC \ XYZ</div>
+    <div class="lc-matrix__axis">X · стабильный</div>
+    <div class="lc-matrix__axis">Y · колеблется</div>
+    <div class="lc-matrix__axis">Z · рваный</div>
+  </div>
+  <p class="lc-note" id="cell-note">нажмите на ячейку, чтобы увидеть рекомендацию и модели</p>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Распределение по классам</h2>
+        <p class="lc-chart__hint">моделей в классе</p>
+      </div>
+      <div class="lc-grid" style="grid-template-columns:1fr 1fr">
+        <div id="abc-chart"></div>
+        <div id="xyz-chart"></div>
+      </div>
+    </div>
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Модели выбранной ячейки</h2>
+        <p class="lc-chart__hint" id="cell-subtitle">AX</p>
+      </div>
+      <div class="lc-table-wrap" style="max-height:320px;overflow:auto">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Модель</th><th class="lc-table__num">Объявлений</th><th class="lc-table__num">Доля</th><th class="lc-table__num">CV</th></tr></thead>
+          <tbody id="cell-body"><tr><td colspan="4" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div>
+      <div class="lc-section__head"><h2 class="lc-section__title">Пробелы каталога</h2></div>
+      <div class="lc-table-wrap" style="max-height:420px;overflow:auto">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Бренд</th><th>Модель</th><th class="lc-table__num">Позиций каталога</th></tr></thead>
+          <tbody id="gaps-body"><tr><td colspan="3" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="lc-section__head"><h2 class="lc-section__title">Модели вне каталога</h2></div>
+      <div class="lc-table-wrap" style="max-height:420px;overflow:auto">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Бренд</th><th>Модель</th><th class="lc-table__num">Объявлений</th></tr></thead>
+          <tbody id="orphans-body"><tr><td colspan="3" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  var current = "AX";
+  var cellMap = {};
+
+  function drawMatrix(cells) {
+    var grid = document.getElementById("matrix");
+    ["A", "B", "C"].forEach(function (row) {
+      var label = document.createElement("div");
+      label.className = "lc-matrix__axis";
+      label.textContent = row;
+      grid.appendChild(label);
+      ["X", "Y", "Z"].forEach(function (column) {
+        var code = row + column;
+        var cell = cellMap[code] || { models: 0, value_mln: 0 };
+        var node = document.createElement("button");
+        node.className = "lc-matrix__cell";
+        node.style.border = "none";
+        node.style.textAlign = "left";
+        node.style.cursor = "pointer";
+        node.style.background = LCCharts.heat(cell.models, maxModels(cells));
+        node.innerHTML = '<span class="lc-matrix__count">' + LC.num(cell.models) + "</span>" +
+          '<span class="lc-matrix__label">' + code + " · " + LC.ratio(cell.value_mln) + " млн</span>";
+        node.addEventListener("click", function () { selectCell(code); });
+        grid.appendChild(node);
+      });
+    });
+  }
+
+  function maxModels(cells) {
+    return Math.max.apply(null, cells.map(function (item) { return item.models; }).concat([1]));
+  }
+
+  function selectCell(code) {
+    current = code;
+    var cell = cellMap[code] || {};
+    document.getElementById("cell-note").textContent = code + " — " + (cell.recommendation || "");
+    document.getElementById("cell-subtitle").textContent = code + " · моделей: " + LC.num(cell.models || 0);
+    LC.api("/api/matrix/models?limit=80&code=" + code).then(function (items) {
+      LC.table(document.getElementById("cell-body"), items, function (item) {
+        return "<td>" + item.brand + " " + item.model + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.offers) + "</td>" +
+          '<td class="lc-table__num">' + LC.pct(item.share, 2) + "</td>" +
+          '<td class="lc-table__num">' + LC.ratio(item.cv) + "</td>";
+      });
+    });
+  }
+
+  function loadSummary() {
+    LC.api("/api/matrix/summary").then(function (data) {
+      document.getElementById("kpi-models").textContent = LC.num(data.models);
+      document.getElementById("kpi-value").textContent = LC.ratio(data.value_mln);
+      document.getElementById("kpi-gaps").textContent = LC.num(data.gaps);
+      document.getElementById("kpi-orphans").textContent = LC.num(data.orphans);
+      LCCharts.bar(document.getElementById("abc-chart"), data.abc, { height: 220, color: "#000000" });
+      LCCharts.bar(document.getElementById("xyz-chart"), data.xyz, { height: 220, color: "#ff5b06" });
+    });
+  }
+
+  function loadCells() {
+    LC.api("/api/matrix/cells").then(function (cells) {
+      cells.forEach(function (item) { cellMap[item.code] = item; });
+      drawMatrix(cells);
+      selectCell(current);
+    });
+  }
+
+  function loadGaps() {
+    LC.api("/api/matrix/gaps?limit=40").then(function (items) {
+      LC.table(document.getElementById("gaps-body"), items, function (item) {
+        return "<td>" + item.brand + "</td><td>" + item.model + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.catalog_trims) + "</td>";
+      });
+    });
+    LC.api("/api/matrix/orphans?limit=40").then(function (items) {
+      LC.table(document.getElementById("orphans-body"), items, function (item) {
+        return "<td>" + item.brand + "</td><td>" + item.model + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.offers) + "</td>";
+      });
+    });
+  }
+
+  loadSummary();
+  loadCells();
+  loadGaps();
+})();
+</script>
+{% endblock %}

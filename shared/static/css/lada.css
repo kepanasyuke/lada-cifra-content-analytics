@@ -1,0 +1,710 @@
+/* Дизайн-система в стиле ladadigit.ru: белое полотно, графитовые акценты, оранжевый #ff5b06. */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-accent: #000000;
+  --foreground: #171717;
+  --text-primary: #000000;
+  --text-secondary: #757575;
+  --text-tertiary: #b8b8b8;
+  --text-inverse: #ffffff;
+  --border: #e8e8e8;
+  --border-strong: #000000;
+  --negative: #ff5d2a;
+  --accent: #ff5b06;
+  --accent-soft: #fff3ec;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --header-height: 80px;
+  --font: "Roboto", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body.lc-body {
+  margin: 0;
+  background: var(--bg-primary);
+  color: var(--foreground);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---------- шапка ---------- */
+
+.lc-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.lc-header__inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 32px;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.lc-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.lc-brand__mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--bg-accent);
+  position: relative;
+  overflow: hidden;
+}
+
+.lc-brand__mark::after {
+  content: "";
+  position: absolute;
+  inset: auto -6px -10px auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.lc-brand__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.lc-brand__name {
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+
+.lc-brand__sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-tertiary);
+}
+
+.lc-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lc-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.lc-nav__link {
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lc-nav__link:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.lc-nav__link--active {
+  background: var(--bg-accent);
+  color: var(--text-inverse);
+}
+
+.lc-header__vacancy {
+  font-size: 13px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 16px;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.lc-header__vacancy:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+/* ---------- каркас ---------- */
+
+.lc-main {
+  flex: 1 0 auto;
+  max-width: 1320px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 32px 72px;
+}
+
+.lc-hero {
+  padding: 8px 0 40px;
+}
+
+.lc-hero__eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+  margin: 0 0 16px;
+}
+
+.lc-hero__title {
+  font-size: 48px;
+  line-height: 1.08;
+  font-weight: 800;
+  margin: 0 0 18px;
+  max-width: 900px;
+  letter-spacing: -0.01em;
+}
+
+.lc-hero__lead {
+  font-size: 18px;
+  color: var(--text-secondary);
+  max-width: 720px;
+  margin: 0;
+}
+
+.lc-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.lc-section {
+  margin-bottom: 40px;
+}
+
+.lc-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.lc-section__title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.lc-section__hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ---------- плашки ---------- */
+
+.lc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.lc-chip--accent {
+  background: var(--accent-soft);
+  color: #c2410c;
+}
+
+.lc-chip--dark {
+  background: var(--bg-accent);
+  color: var(--text-inverse);
+}
+
+.lc-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.lc-badge--ok {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.lc-badge--warn {
+  background: #fff7e6;
+  color: #b45309;
+}
+
+.lc-badge--bad {
+  background: #fff1ee;
+  color: #b42318;
+}
+
+.lc-badge--info {
+  background: #eef2ff;
+  color: #3538cd;
+}
+
+/* ---------- карточки и сетки ---------- */
+
+.lc-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.lc-grid--2 {
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+}
+
+.lc-grid--tight {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.lc-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lc-card--white {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+}
+
+.lc-card--dark {
+  background: var(--bg-accent);
+  color: var(--text-inverse);
+}
+
+.lc-card--dark .lc-card__label,
+.lc-card--dark .lc-card__note {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.lc-card__label {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+}
+
+.lc-card__value {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.lc-card__note {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.lc-statline {
+  height: 3px;
+  width: 36px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ---------- таблицы ---------- */
+
+.lc-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.lc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.lc-table th {
+  text-align: left;
+  padding: 14px 18px;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+}
+
+.lc-table td {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.lc-table tr:last-child td {
+  border-bottom: none;
+}
+
+.lc-table tbody tr:hover td {
+  background: #fafafa;
+}
+
+.lc-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+}
+
+.lc-table--compact td {
+  padding: 9px 14px;
+}
+
+/* ---------- графики ---------- */
+
+.lc-chart {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+}
+
+.lc-chart__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.lc-chart__title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.lc-chart__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.lc-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.lc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.lc-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lc-legend__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+/* ---------- матрица ---------- */
+
+.lc-matrix {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 64px repeat(3, minmax(0, 1fr));
+}
+
+.lc-matrix__corner,
+.lc-matrix__axis {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+}
+
+.lc-matrix__cell {
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid transparent;
+  transition: transform 0.12s ease;
+}
+
+.lc-matrix__cell:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+}
+
+.lc-matrix__count {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.lc-matrix__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+/* ---------- формы ---------- */
+
+.lc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.lc-select,
+.lc-input {
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--foreground);
+  min-width: 160px;
+}
+
+.lc-select:focus,
+.lc-input:focus {
+  outline: 2px solid var(--bg-accent);
+  outline-offset: 1px;
+}
+
+.lc-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: none;
+  background: var(--bg-accent);
+  color: var(--text-inverse);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.lc-button:hover {
+  opacity: 0.86;
+}
+
+.lc-button--ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.lc-button--accent {
+  background: var(--accent);
+}
+
+/* ---------- прочее ---------- */
+
+.lc-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.lc-note {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 10px;
+}
+
+.lc-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.lc-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bg-accent);
+}
+
+.lc-bar__fill--accent {
+  background: var(--accent);
+}
+
+.lc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lc-list__item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.lc-list__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lc-list__title {
+  font-weight: 500;
+  font-size: 14px;
+  margin: 0 0 3px;
+}
+
+.lc-list__text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.lc-footer {
+  border-top: 1px solid var(--border);
+  padding: 28px 32px;
+}
+
+.lc-footer__inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.lc-footer__brand {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.lc-loading {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 1080px) {
+  .lc-header__vacancy {
+    display: none;
+  }
+  .lc-hero__title {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 720px) {
+  .lc-header__inner {
+    height: 64px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .lc-brand__text {
+    display: none;
+  }
+  .lc-main {
+    padding: 24px 16px 48px;
+  }
+  .lc-hero__title {
+    font-size: 28px;
+  }
+  .lc-hero__lead {
+    font-size: 15px;
+  }
+  .lc-card {
+    padding: 18px;
+  }
+  .lc-card__value {
+    font-size: 26px;
+  }
+}

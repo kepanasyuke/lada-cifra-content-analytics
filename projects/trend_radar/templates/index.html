@@ -1,0 +1,188 @@
+{% extends "shared/templates/base.html" %}
+{% block title %}Тренды · LADA Цифра{% endblock %}
+
+{% block content %}
+<section class="lc-hero">
+  <p class="lc-hero__eyebrow">Проект 03 · Сбор и анализ трендов</p>
+  <h1 class="lc-hero__title">Тренд-радар рынка: динамика предложения, доли брендов, корреляции</h1>
+  <p class="lc-hero__lead">
+    Агрегаты считает SQL, статистику — stdlib: коэффициент Пирсона, индексы цен, сравнение окон.
+    Результат — не «красивые графики», а выводы, которые команда контента забирает в работу.
+  </p>
+  <div class="lc-hero__meta">
+    <span class="lc-chip lc-chip--dark">Pearson без numpy</span>
+    <span class="lc-chip">индекс цен</span>
+    <span class="lc-chip">окно 6 мес.</span>
+    <span class="lc-chip lc-chip--accent">выводы текстом</span>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--tight" id="kpi">
+    <div class="lc-card"><span class="lc-card__label">Объявлений в последнем месяце</span><span class="lc-card__value" id="kpi-offers">—</span></div>
+    <div class="lc-card"><span class="lc-card__label">Средняя цена</span><span class="lc-card__value" id="kpi-price">—</span></div>
+    <div class="lc-card"><span class="lc-card__label">Индекс цен</span><span class="lc-card__value" id="kpi-index">—</span></div>
+    <div class="lc-card lc-card--dark"><span class="lc-card__label">Периодов в ряду</span><span class="lc-card__value" id="kpi-periods">—</span><span class="lc-card__note">месячные срезы</span></div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-chart">
+    <div class="lc-chart__head">
+      <h2 class="lc-chart__title">Предложение и индекс цен</h2>
+      <p class="lc-chart__hint">объявления в месяц · индекс: первый месяц = 100</p>
+    </div>
+    <div id="demand-chart"></div>
+    <div class="lc-legend">
+      <span class="lc-legend__item"><span class="lc-legend__dot" style="background:#000"></span>объявлений</span>
+      <span class="lc-legend__item"><span class="lc-legend__dot" style="background:#ff5b06"></span>индекс средней цены</span>
+    </div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Динамика по брендам</h2>
+        <p class="lc-chart__hint">топ-6 брендов по числу объявлений</p>
+      </div>
+      <div id="brands-chart"></div>
+      <div class="lc-legend" id="brands-legend"></div>
+    </div>
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Структура топлива</h2>
+        <p class="lc-chart__hint">доля объявлений по месяцам</p>
+      </div>
+      <div id="fuel-chart"></div>
+    </div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Что связано с ценой</h2>
+        <p class="lc-chart__hint">коэффициент Пирсона по выборке</p>
+      </div>
+      <div class="lc-table-wrap">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Пара</th><th class="lc-table__num">r</th><th>Связь</th><th>Направление</th></tr></thead>
+          <tbody id="corr-body"><tr><td colspan="4" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+      <p class="lc-note" id="corr-note"></p>
+    </div>
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Движение брендов</h2>
+        <p class="lc-chart__hint">последние 6 месяцев против предыдущих</p>
+      </div>
+      <div class="lc-table-wrap" style="max-height:340px;overflow:auto">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Бренд</th><th class="lc-table__num">Было</th><th class="lc-table__num">Стало</th><th class="lc-table__num">Δ</th></tr></thead>
+          <tbody id="movers-body"><tr><td colspan="4" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  function loadSummary() {
+    LC.api("/api/trends/summary").then(function (data) {
+      document.getElementById("kpi-offers").textContent = LC.num((data.last_period || {}).offers || 0);
+      document.getElementById("kpi-price").textContent = LC.money((data.avg_price_last || {}).avg_price || 0);
+      document.getElementById("kpi-periods").textContent = LC.num(data.periods);
+    });
+  }
+
+  function loadDemand() {
+    LC.api("/api/trends/demand?months=36").then(function (data) {
+      var offers = data.demand.map(function (row) { return { x: row.period, y: row.offers }; });
+      var index = data.index.map(function (row) { return { x: row.x, y: row.y }; });
+      var last = index.length ? index[index.length - 1].y : 0;
+      document.getElementById("kpi-index").textContent = LC.ratio(last);
+      LCCharts.line(document.getElementById("demand-chart"), [
+        { name: "объявления", color: "#000000", points: offers },
+        { name: "индекс цены", color: "#ff5b06", points: scaleTo(index, offers, 100) }
+      ], { height: 320 });
+    });
+  }
+
+  function scaleTo(index, offers, factor) {
+    var maxOffers = Math.max.apply(null, offers.map(function (p) { return p.y; }).concat([1]));
+    return index.map(function (p) { return { x: p.x, y: (p.y / factor) * maxOffers * 0.9 }; });
+  }
+
+  function loadBrands() {
+    LC.api("/api/trends/brands?months=18").then(function (series) {
+      var palette = LCCharts.palette;
+      LCCharts.line(document.getElementById("brands-chart"), series.map(function (item, index) {
+        return { name: item.brand, color: palette[index % palette.length], points: item.points };
+      }), { height: 300 });
+      document.getElementById("brands-legend").innerHTML = series.map(function (item, index) {
+        return '<span class="lc-legend__item"><span class="lc-legend__dot" style="background:' + palette[index % palette.length] + '"></span>' + item.brand + "</span>";
+      }).join("");
+    });
+  }
+
+  function loadFuel() {
+    LC.api("/api/trends/fuel?months=12").then(function (rows) {
+      var byPeriod = {};
+      rows.forEach(function (row) {
+        byPeriod[row.period] = byPeriod[row.period] || { label: row.period, total: 0, segments: [] };
+        byPeriod[row.period].total += row.offers;
+        byPeriod[row.period].segments.push({ label: row.fuel, value: row.offers, share: row.share_pct, color: fuelColor(row.fuel) });
+      });
+      LCCharts.stacked(document.getElementById("fuel-chart"), Object.keys(byPeriod).sort().slice(-8).map(function (key) { return byPeriod[key]; }));
+    });
+  }
+
+  function fuelColor(fuel) {
+    var map = { "бензин": "#000000", "дизель": "#ff5b06", "CNG": "#757575", "LPG": "#b8b8b8", "Petrol": "#000000", "Diesel": "#ff5b06" };
+    return map[fuel] || "#757575";
+  }
+
+  function loadCorrelations() {
+    LC.api("/api/trends/correlations").then(function (items) {
+      LC.table(document.getElementById("corr-body"), items, function (item) {
+        return "<td>" + item.pair + "</td>" +
+          '<td class="lc-table__num">' + LC.ratio(item.r) + "</td>" +
+          "<td>" + LC.badge(Math.abs(item.r) > 0.5 ? "info" : "warn", item.strength) + "</td>" +
+          "<td>" + item.direction + "</td>";
+      });
+      var strongest = items.slice().sort(function (a, b) { return Math.abs(b.r) - Math.abs(a.r); })[0];
+      if (strongest) {
+        document.getElementById("corr-note").textContent =
+          "Самый сильный сигнал: " + strongest.pair.toLowerCase() + " — r = " + LC.ratio(strongest.r) +
+          " (" + strongest.strength + ", " + strongest.direction + "), наблюдений: " + LC.num(strongest.observations) + ".";
+      }
+    });
+  }
+
+  function loadMovers() {
+    LC.api("/api/trends/movers").then(function (items) {
+      var top = items.slice(0, 8).concat(items.slice(-4));
+      LC.table(document.getElementById("movers-body"), top, function (item) {
+        var level = item.growth > 10 ? "ok" : item.growth < -10 ? "bad" : "warn";
+        return "<td>" + item.brand + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.early) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.recent) + "</td>" +
+          '<td class="lc-table__num">' + LC.badge(level, LC.pct(item.growth, 1)) + "</td>";
+      });
+    });
+  }
+
+  loadSummary();
+  loadDemand();
+  loadBrands();
+  loadFuel();
+  loadCorrelations();
+  loadMovers();
+})();
+</script>
+{% endblock %}

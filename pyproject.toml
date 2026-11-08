@@ -1,0 +1,70 @@
+[project]
+name = "lada-cifra-content-analytics"
+version = "1.0.0"
+description = "Пять аналитических сервисов для контент-аналитики в автобизнесе (LADA Цифра)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "jinja2>=3.1",
+  "beautifulsoup4>=4.12",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "W",   # warnings
+  "I",   # сортировка импортов
+  "N",   # pep8-naming
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "SIM", # упрощения
+  "RET", # лишние return
+  "C90", # сложность
+  "ANN", # аннотации типов
+  "ARG", # неиспользуемые аргументы
+  "PLR", # pylint refactor
+  "RUF", # ruff-specific
+  "S",   # bandit
+]
+ignore = [
+  "ANN401",
+  "PLR2004",
+  "PLR0913",
+  "S101",
+  "S104",
+  "S108",
+  "S311",
+  "RUF001",
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ARG001", "ARG005", "S101", "S105", "S106", "PLR2004"]
+"**/conftest.py" = ["ANN001", "ANN201", "ARG001", "S101"]
+"**/api.py" = ["B008"]
+"**/upstream.py" = ["B008"]
+"dags/*" = ["ANN201"]
+"tools/*" = ["S101"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 5
+
+[tool.ruff.lint.isort]
+known-first-party = ["shared", "projects"]
+
+[tool.pytest.ini_options]
+testpaths = ["projects"]
+pythonpath = ["."]
+addopts = "-q --import-mode=importlib"

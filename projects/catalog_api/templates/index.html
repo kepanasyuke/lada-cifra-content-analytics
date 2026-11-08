@@ -1,0 +1,199 @@
+{% extends "shared/templates/base.html" %}
+{% block title %}Каталог · LADA Цифра{% endblock %}
+
+{% block content %}
+<section class="lc-hero">
+  <p class="lc-hero__eyebrow">Проект 01 · Сбор данных из внешних каталогов</p>
+  <h1 class="lc-hero__title">Каталог автомобилей: API-ингест и парсер спецификаций</h1>
+  <p class="lc-hero__lead">
+    Клиент внешнего каталога с пагинацией, ретраями и валидацией схемы, HTML-парсер карточек
+    характеристик и запись в единое хранилище. Данные — публичный датасет объявлений,
+    каталог отдаётся эмулятором внешнего API по HTTP.
+  </p>
+  <div class="lc-hero__meta">
+    <span class="lc-chip lc-chip--dark">requests + bs4</span>
+    <span class="lc-chip">пагинация · ретраи</span>
+    <span class="lc-chip">SQLite upsert</span>
+    <span class="lc-chip lc-chip--accent">журнал запусков</span>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid" id="kpi">
+    <div class="lc-card"><span class="lc-card__label">Позиций каталога</span><span class="lc-card__value">—</span></div>
+    <div class="lc-card"><span class="lc-card__label">Брендов</span><span class="lc-card__value">—</span></div>
+    <div class="lc-card"><span class="lc-card__label">Моделей</span><span class="lc-card__value">—</span></div>
+    <div class="lc-card lc-card--dark"><span class="lc-card__label">Последний ингест</span><span class="lc-card__value" id="last-run">—</span><span class="lc-card__note" id="last-run-note">запусков не было</span></div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-toolbar">
+    <button class="lc-button" id="ingest-local">Загрузить каталог из витрины</button>
+    <button class="lc-button lc-button--ghost" id="ingest-live">Ингест по HTTP (live)</button>
+    <span class="lc-loading" id="ingest-status"></span>
+  </div>
+  <p class="lc-note">
+    «Live» — честный сетевой путь: HTTP-запрос к эмулятору внешнего каталога на
+    <code>/upstream/v1/catalog</code> с пагинацией и ретраями. Если сервис недоступен,
+    ингест возвращает ошибку источника, а не тихо подставляет данные.
+  </p>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Позиции каталога по брендам</h2>
+        <p class="lc-chart__hint">топ-12 · комплектации × топливо × КПП</p>
+      </div>
+      <div id="brand-chart"></div>
+    </div>
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Покрытие каталога объявлениями</h2>
+        <p class="lc-chart__hint">чем ниже, тем хуже контент подкреплён предложением</p>
+      </div>
+      <div class="lc-table-wrap" style="max-height:320px;overflow:auto">
+        <table class="lc-table lc-table--compact">
+          <thead><tr><th>Бренд</th><th>Модель</th><th class="lc-table__num">Позиций</th><th class="lc-table__num">Объявлений</th><th class="lc-table__num">На позицию</th></tr></thead>
+          <tbody id="coverage-body"><tr><td colspan="5" class="lc-loading">загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-section__head">
+    <h2 class="lc-section__title">Позиции каталога</h2>
+    <p class="lc-section__hint">поиск по модели и комплектации</p>
+  </div>
+  <div class="lc-toolbar">
+    <select class="lc-select" id="brand-filter"><option value="">Все бренды</option></select>
+    <input class="lc-input" id="model-search" placeholder="Поиск: модель или комплектация" style="min-width:280px">
+  </div>
+  <div class="lc-table-wrap" style="max-height:520px;overflow:auto">
+    <table class="lc-table">
+      <thead>
+        <tr>
+          <th>Бренд</th><th>Модель</th><th>Комплектация</th><th>Топливо</th><th>КПП</th>
+          <th class="lc-table__num">Двигатель</th><th class="lc-table__num">Мощность</th><th class="lc-table__num">Мест</th><th class="lc-table__num">Годы</th>
+        </tr>
+      </thead>
+      <tbody id="models-body"><tr><td colspan="9" class="lc-loading">загрузка…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-section__head">
+    <h2 class="lc-section__title">Журнал запусков</h2>
+  </div>
+  <div class="lc-table-wrap">
+    <table class="lc-table lc-table--compact">
+      <thead><tr><th>Запуск</th><th>Начало</th><th>Источник</th><th class="lc-table__num">Страниц</th><th class="lc-table__num">Записей</th><th>Статус</th></tr></thead>
+      <tbody id="runs-body"><tr><td colspan="6" class="lc-loading">загрузка…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+(function () {
+  var statusNode = document.getElementById("ingest-status");
+
+  function loadSummary() {
+    LC.api("/api/catalog/summary").then(function (data) {
+      var cards = document.querySelectorAll("#kpi .lc-card__value");
+      cards[0].textContent = LC.num(data.trims);
+      cards[1].textContent = LC.num(data.brands);
+      cards[2].textContent = LC.num(data.models);
+      var run = data.last_run || {};
+      document.getElementById("last-run").textContent = run.run_id ? "#" + run.run_id : "—";
+      document.getElementById("last-run-note").textContent = run.finished_at
+        ? LC.text(run.source) + " · " + LC.num(run.records) + " записей"
+        : "запусков не было";
+    });
+  }
+
+  function loadBrands() {
+    LC.api("/api/catalog/brands").then(function (items) {
+      LCCharts.bar(document.getElementById("brand-chart"), items.slice(0, 12).map(function (item) {
+        return { label: item.brand, value: item.trims };
+      }), { height: 300 });
+      var select = document.getElementById("brand-filter");
+      items.forEach(function (item) {
+        var option = document.createElement("option");
+        option.value = item.brand;
+        option.textContent = item.brand + " · " + item.trims;
+        select.appendChild(option);
+      });
+    });
+  }
+
+  function loadCoverage() {
+    LC.api("/api/catalog/coverage?limit=40").then(function (items) {
+      LC.table(document.getElementById("coverage-body"), items, function (item) {
+        return "<td>" + item.brand + "</td><td>" + item.model + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.catalog_trims) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.offers) + "</td>" +
+          '<td class="lc-table__num">' + LC.ratio(item.offers_per_trim) + "</td>";
+      });
+    });
+  }
+
+  function loadModels() {
+    var brand = document.getElementById("brand-filter").value;
+    var query = document.getElementById("model-search").value;
+    var url = "/api/catalog/models?limit=200&brand=" + encodeURIComponent(brand) + "&q=" + encodeURIComponent(query);
+    LC.api(url).then(function (items) {
+      LC.table(document.getElementById("models-body"), items, function (item) {
+        return "<td>" + item.brand + "</td><td>" + item.model + "</td><td>" + (item.trim || "—") + "</td>" +
+          "<td>" + item.fuel + "</td><td>" + item.transmission + "</td>" +
+          '<td class="lc-table__num">' + LC.text(item.engine_cc) + "</td>" +
+          '<td class="lc-table__num">' + LC.text(item.power_bhp) + "</td>" +
+          '<td class="lc-table__num">' + LC.text(item.seats) + "</td>" +
+          '<td class="lc-table__num">' + LC.text(item.year_from) + "–" + LC.text(item.year_to) + "</td>";
+      });
+    });
+  }
+
+  function loadRuns() {
+    LC.api("/api/catalog/runs").then(function (items) {
+      LC.table(document.getElementById("runs-body"), items, function (item) {
+        return "<td>#" + item.run_id + "</td><td>" + LC.text(item.started_at) + "</td><td>" + LC.text(item.source) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.pages) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.records) + "</td>" +
+          "<td>" + LC.badge(item.status === "ok" ? "ok" : "warn", item.status) + "</td>";
+      });
+    });
+  }
+
+  function ingest(mode) {
+    statusNode.textContent = "ингест: " + mode + "…";
+    LC.api("/api/catalog/ingest?mode=" + mode, { method: "POST" })
+      .then(function (report) {
+        statusNode.textContent = "готово: " + report.records + " записей, " + report.pages + " страниц";
+        refresh();
+      })
+      .catch(function (error) {
+        statusNode.textContent = "ошибка источника: " + error.message;
+      });
+  }
+
+  function refresh() {
+    loadSummary();
+    loadModels();
+    loadRuns();
+    loadCoverage();
+    loadBrands();
+  }
+
+  document.getElementById("ingest-local").addEventListener("click", function () { ingest("local"); });
+  document.getElementById("ingest-live").addEventListener("click", function () { ingest("live"); });
+  document.getElementById("brand-filter").addEventListener("change", loadModels);
+  document.getElementById("model-search").addEventListener("input", loadModels);
+  refresh();
+})();
+</script>
+{% endblock %}

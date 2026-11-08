@@ -1,0 +1,207 @@
+{% extends "shared/templates/base.html" %}
+{% block title %}Качество контента · LADA Цифра{% endblock %}
+
+{% block content %}
+<section class="lc-hero">
+  <p class="lc-hero__eyebrow">Проект 02 · Тесты полноты и качества контента</p>
+  <h1 class="lc-hero__title">Контроль качества карточек: правила, алерты, история прогонов</h1>
+  <p class="lc-hero__lead">
+    Декларативные правила собирают нарушения по обязательным характеристикам, дублям, выбросам цен
+    и связи контента с каталогом. Пороговые алерты отделяют «шум» от сигналов, с которыми команда
+    контента идёт в работу на неделю.
+  </p>
+  <div class="lc-hero__meta">
+    <span class="lc-chip lc-chip--dark">12 правил</span>
+    <span class="lc-chip">1.5·IQR для цен</span>
+    <span class="lc-chip lc-chip--accent">алерты по порогам</span>
+    <span class="lc-chip">Airflow DAG</span>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid" id="kpi">
+    <div class="lc-card lc-card--dark"><span class="lc-card__label">Quality score</span><span class="lc-card__value">—</span><span class="lc-card__note">полнота 60% · нарушения 40%</span></div>
+    <div class="lc-card"><span class="lc-card__label">Полнота карточек</span><span class="lc-card__value">—</span><span class="lc-card__note">средняя по всем объявлениям</span></div>
+    <div class="lc-card"><span class="lc-card__label">Нарушений</span><span class="lc-card__value">—</span><span class="lc-card__note">в последнем прогоне</span></div>
+    <div class="lc-card"><span class="lc-card__label">Алертов</span><span class="lc-card__value">—</span><span class="lc-card__note">превышенных порогов</span></div>
+  </div>
+  <div class="lc-toolbar" style="margin-top:20px">
+    <button class="lc-button" id="run-qa">Прогнать проверки</button>
+    <span class="lc-loading" id="qa-status"></span>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-grid lc-grid--2">
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Алерты</h2>
+        <p class="lc-chart__hint">метрика против порога</p>
+      </div>
+      <ul class="lc-list" id="alerts-list"><li class="lc-list__item"><p class="lc-list__text">загрузка…</p></li></ul>
+    </div>
+    <div class="lc-chart">
+      <div class="lc-chart__head">
+        <h2 class="lc-chart__title">Нарушения по правилам</h2>
+        <p class="lc-chart__hint">топ-10 правил</p>
+      </div>
+      <div id="rule-chart"></div>
+    </div>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-section__head">
+    <h2 class="lc-section__title">Полнота по обязательным полям</h2>
+    <p class="lc-section__hint">доля карточек без поля</p>
+  </div>
+  <div class="lc-card lc-card--white" id="completeness"></div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-section__head">
+    <h2 class="lc-section__title">Нарушения</h2>
+    <p class="lc-section__hint">последний прогон, до 200 записей</p>
+  </div>
+  <div class="lc-toolbar">
+    <select class="lc-select" id="rule-filter"><option value="">Все правила</option></select>
+  </div>
+  <div class="lc-table-wrap" style="max-height:560px;overflow:auto">
+    <table class="lc-table lc-table--compact">
+      <thead><tr><th>Правило</th><th>Критичность</th><th>Бренд</th><th>Модель</th><th>Карточка</th><th>Описание</th></tr></thead>
+      <tbody id="findings-body"><tr><td colspan="6" class="lc-loading">загрузка…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="lc-section">
+  <div class="lc-section__head">
+    <h2 class="lc-section__title">История прогонов</h2>
+  </div>
+  <div class="lc-table-wrap">
+    <table class="lc-table lc-table--compact">
+      <thead><tr><th>Прогон</th><th>Дата</th><th class="lc-table__num">Объявлений</th><th class="lc-table__num">Нарушений</th><th class="lc-table__num">Алертов</th><th class="lc-table__num">Score</th></tr></thead>
+      <tbody id="runs-body"><tr><td colspan="6" class="lc-loading">загрузка…</td></tr></tbody>
+    </table>
+  </div>
+  <p class="lc-note">В продакшене прогон ставится в расписание DAG <code>content_quality</code> (см. <code>dags/content_quality_dag.py</code>) и алерты уходят в бот команды.</p>
+</section>
+
+<script>
+(function () {
+  var statusNode = document.getElementById("qa-status");
+
+  function severityBadge(level) {
+    var map = { bad: "bad", warn: "warn", info: "info" };
+    return LC.badge(map[level] || "info", level);
+  }
+
+  function loadSummary() {
+    LC.api("/api/qa/summary").then(function (data) {
+      var run = data.last_run || {};
+      var metrics = data.metrics || {};
+      var cards = document.querySelectorAll("#kpi .lc-card__value");
+      cards[0].textContent = run.score !== undefined ? LC.ratio(run.score) : "—";
+      cards[1].textContent = LC.pct(metrics.completeness_pct || 0);
+      cards[2].textContent = LC.num(run.findings || 0);
+      cards[3].textContent = LC.num(run.alerts || 0);
+      renderCompleteness(metrics);
+      fillRuleFilter(data.rules || []);
+    });
+  }
+
+  function renderCompleteness(metrics) {
+    var rows = [
+      { label: "Объём двигателя", value: metrics.missing_engine_pct || 0 },
+      { label: "Мощность", value: metrics.missing_power_pct || 0 },
+      { label: "Число мест", value: metrics.missing_seats_pct || 0 },
+      { label: "Дубли", value: metrics.duplicates_pct || 0 },
+      { label: "Выбросы цен", value: metrics.price_outliers_pct || 0 },
+      { label: "Нет позиции в каталоге", value: metrics.catalog_unmatched_pct || 0 }
+    ];
+    var max = Math.max.apply(null, rows.map(function (r) { return r.value; }).concat([1]));
+    document.getElementById("completeness").innerHTML = rows.map(function (row) {
+      var width = Math.min(100, (row.value / max) * 100);
+      return '<div style="margin-bottom:14px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">' +
+        "<span>" + row.label + "</span><span style=\"font-family:var(--mono);color:#757575\">" + LC.pct(row.value, 2) + "</span></div>" +
+        '<div class="lc-bar"><div class="lc-bar__fill' + (row.value > 5 ? " lc-bar__fill--accent" : "") + '" style="width:' + width.toFixed(1) + '%"></div></div>' +
+        "</div>";
+    }).join("");
+  }
+
+  function fillRuleFilter(rules) {
+    var select = document.getElementById("rule-filter");
+    if (select.dataset.filled) return;
+    rules.forEach(function (rule) {
+      var option = document.createElement("option");
+      option.value = rule.code;
+      option.textContent = rule.code + " · " + rule.title;
+      select.appendChild(option);
+    });
+    select.dataset.filled = "1";
+  }
+
+  function loadAlerts() {
+    LC.api("/api/qa/alerts").then(function (items) {
+      LC.rows(document.getElementById("alerts-list"), items, function (item) {
+        return '<li class="lc-list__item">' + severityBadge(item.level) +
+          '<div class="lc-list__body"><p class="lc-list__title">' + item.title + "</p>" +
+          '<p class="lc-list__text">' + item.detail + "</p></div></li>";
+      });
+    });
+  }
+
+  function loadByRule() {
+    LC.api("/api/qa/by-rule").then(function (items) {
+      LCCharts.bar(document.getElementById("rule-chart"), items.slice(0, 10).map(function (item) {
+        return { label: item.rule_code.replace("QA-", ""), value: item.findings };
+      }), { height: 300 });
+    });
+  }
+
+  function loadFindings() {
+    var code = document.getElementById("rule-filter").value;
+    LC.api("/api/qa/findings?limit=200&code=" + encodeURIComponent(code)).then(function (items) {
+      LC.table(document.getElementById("findings-body"), items, function (item) {
+        return "<td>" + item.rule_code + "</td><td>" + severityBadge(item.severity) + "</td>" +
+          "<td>" + LC.text(item.brand) + "</td><td>" + LC.text(item.model) + "</td>" +
+          "<td>" + LC.text(item.offer_id) + "</td><td>" + item.message + "</td>";
+      });
+    });
+  }
+
+  function loadRuns() {
+    LC.api("/api/qa/runs").then(function (items) {
+      LC.table(document.getElementById("runs-body"), items, function (item) {
+        return "<td>#" + item.run_id + "</td><td>" + item.created_at + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.offers) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.findings) + "</td>" +
+          '<td class="lc-table__num">' + LC.num(item.alerts) + "</td>" +
+          '<td class="lc-table__num">' + LC.ratio(item.score) + "</td>";
+      });
+    });
+  }
+
+  function runQa() {
+    statusNode.textContent = "прогон проверок…";
+    LC.api("/api/qa/run", { method: "POST" }).then(function (report) {
+      statusNode.textContent = "готово: score " + report.score + ", нарушений " + report.findings;
+      refresh();
+    }).catch(function (error) { statusNode.textContent = error.message; });
+  }
+
+  function refresh() {
+    loadSummary();
+    loadAlerts();
+    loadByRule();
+    loadFindings();
+    loadRuns();
+  }
+
+  document.getElementById("run-qa").addEventListener("click", runQa);
+  document.getElementById("rule-filter").addEventListener("change", loadFindings);
+  refresh();
+})();
+</script>
+{% endblock %}

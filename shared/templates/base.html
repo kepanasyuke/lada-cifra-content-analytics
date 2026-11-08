@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}{{ app_title }}{% endblock %}</title>
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/lada.css">
+</head>
+<body class="lc-body">
+<header class="lc-header">
+  <div class="lc-header__inner">
+    <a class="lc-brand" href="/">
+      <span class="lc-brand__mark" aria-hidden="true"></span>
+      <span class="lc-brand__text">
+        <span class="lc-brand__name">LADA Цифра</span>
+        <span class="lc-brand__sub">Content Analytics</span>
+      </span>
+    </a>
+    <nav class="lc-nav" aria-label="Проекты">
+      {% for slug, title, href in nav %}
+      <a class="lc-nav__link{% if slug == project %} lc-nav__link--active{% endif %}" href="{{ href }}">{{ title }}</a>
+      {% endfor %}
+    </nav>
+    <a class="lc-header__vacancy" href="https://ladadigit.ru/vacancies" target="_blank" rel="noopener">
+      Вакансия · Junior Content Analyst
+    </a>
+  </div>
+</header>
+
+<main class="lc-main">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="lc-footer">
+  <div class="lc-footer__inner">
+    <span class="lc-footer__brand">LADA Цифра</span>
+    <span class="lc-footer__text">Демо-портфолио под вакансию {{ vacancy }} · данные: открытые источники</span>
+  </div>
+</footer>
+
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+data/warehouse.sqlite
+data/*.sqlite
+logs/
+*.log
