@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from projects.catalog_api import service
@@ -66,21 +66,40 @@ def catalog_runs(conn: DictConnection = Depends(get_conn)) -> list[dict[str, Any
 
 @router.post("/api/catalog/ingest")
 def catalog_ingest(
+    request: Request,
     mode: str = Query("local"),
     conn: DictConnection = Depends(get_conn),
 ) -> dict[str, Any]:
     """Запускает загрузку каталога: local (витрина) или live (HTTP-API)."""
-    return ingest_with(conn, mode)
+    return ingest_with(conn, mode, upstream_url(request))
 
 
-def ingest_with(conn: sqlite3.Connection, mode: str) -> dict[str, Any]:
+def upstream_url(request: Request) -> str:
+    """Адрес эмулятора внешнего каталога на текущем хосте."""
+    return str(request.base_url).rstrip("/") + "/upstream"
+
+
+def ingest_with(conn: sqlite3.Connection, mode: str, base_url: str) -> dict[str, Any]:
     """Выбирает источник и запускает ингест."""
-    return service.ingest(conn, source_for(conn, mode))
+    return guarded(conn, source_for(conn, mode, base_url))
 
 
-def source_for(conn: sqlite3.Connection, mode: str) -> Any:
+def source_for(conn: sqlite3.Connection, mode: str, base_url: str) -> Any:
     """Источник каталога по режиму запуска."""
-    return HttpCatalogSource() if mode == "live" else LocalCatalogSource(conn)
+    return HttpCatalogSource(base_url=base_url) if mode == "live" else LocalCatalogSource(conn)
+
+
+def guarded(conn: sqlite3.Connection, source: Any) -> dict[str, Any]:
+    """Ингест с понятной ошибкой источника вместо 500."""
+    try:
+        return service.ingest(conn, source)
+    except CatalogUnavailableError as error:
+        raise unavailable(error) from error
+
+
+def unavailable(error: Exception) -> HTTPException:
+    """Ответ 502 с текстом ошибки источника."""
+    return HTTPException(status_code=502, detail=f"Источник каталога недоступен: {error}")
 
 
 @router.get("/api/catalog/errors")

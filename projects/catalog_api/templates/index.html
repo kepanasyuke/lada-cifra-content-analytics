@@ -99,7 +99,7 @@
 </section>
 
 <script>
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   var statusNode = document.getElementById("ingest-status");
 
   function loadSummary() {
@@ -113,6 +113,8 @@
       document.getElementById("last-run-note").textContent = run.finished_at
         ? LC.text(run.source) + " · " + LC.num(run.records) + " записей"
         : "запусков не было";
+    }).catch(function (error) {
+      document.getElementById("last-run-note").textContent = error.message;
     });
   }
 
@@ -120,15 +122,24 @@
     LC.api("/api/catalog/brands").then(function (items) {
       LCCharts.bar(document.getElementById("brand-chart"), items.slice(0, 12).map(function (item) {
         return { label: item.brand, value: item.trims };
-      }), { height: 300 });
-      var select = document.getElementById("brand-filter");
-      items.forEach(function (item) {
-        var option = document.createElement("option");
-        option.value = item.brand;
-        option.textContent = item.brand + " · " + item.trims;
-        select.appendChild(option);
-      });
+      }), { height: 300, empty: "Каталог ещё не загружен" });
+      fillBrands(items);
+    }).catch(function (error) {
+      LC.fail(document.getElementById("brand-chart"), error);
     });
+  }
+
+  function fillBrands(items) {
+    var select = document.getElementById("brand-filter");
+    var current = select.value;
+    select.innerHTML = '<option value="">Все бренды</option>';
+    items.forEach(function (item) {
+      var option = document.createElement("option");
+      option.value = item.brand;
+      option.textContent = item.brand + " · " + item.trims;
+      select.appendChild(option);
+    });
+    select.value = current;
   }
 
   function loadCoverage() {
@@ -138,7 +149,9 @@
           '<td class="lc-table__num">' + LC.num(item.catalog_trims) + "</td>" +
           '<td class="lc-table__num">' + LC.num(item.offers) + "</td>" +
           '<td class="lc-table__num">' + LC.ratio(item.offers_per_trim) + "</td>";
-      });
+      }, { columns: 5, empty: "Покрытие в норме: у каждой позиции каталога есть объявления" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("coverage-body"), error);
     });
   }
 
@@ -154,7 +167,9 @@
           '<td class="lc-table__num">' + LC.text(item.power_bhp) + "</td>" +
           '<td class="lc-table__num">' + LC.text(item.seats) + "</td>" +
           '<td class="lc-table__num">' + LC.text(item.year_from) + "–" + LC.text(item.year_to) + "</td>";
-      });
+      }, { columns: 9, empty: query || brand ? "Ничего не найдено: измените запрос или бренд" : "Каталог пуст — нажмите «Загрузить каталог»" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("models-body"), error);
     });
   }
 
@@ -165,7 +180,9 @@
           '<td class="lc-table__num">' + LC.num(item.pages) + "</td>" +
           '<td class="lc-table__num">' + LC.num(item.records) + "</td>" +
           "<td>" + LC.badge(item.status === "ok" ? "ok" : "warn", item.status) + "</td>";
-      });
+      }, { columns: 6, empty: "Запусков ещё не было" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("runs-body"), error);
     });
   }
 
@@ -194,6 +211,6 @@
   document.getElementById("brand-filter").addEventListener("change", loadModels);
   document.getElementById("model-search").addEventListener("input", loadModels);
   refresh();
-})();
+});
 </script>
 {% endblock %}

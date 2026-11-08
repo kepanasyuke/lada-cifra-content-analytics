@@ -88,7 +88,7 @@
 </section>
 
 <script>
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   var statusNode = document.getElementById("qa-status");
 
   function severityBadge(level) {
@@ -144,11 +144,21 @@
 
   function loadAlerts() {
     LC.api("/api/qa/alerts").then(function (items) {
-      LC.rows(document.getElementById("alerts-list"), items, function (item) {
+      var list = document.getElementById("alerts-list");
+      if (!items.length) {
+        list.innerHTML = '<li class="lc-list__item"><div class="lc-list__body">' +
+          '<p class="lc-list__title">Алертов нет</p>' +
+          '<p class="lc-list__text">Все пороги в норме: полнота, дубли, цены и связь с каталогом в допустимых пределах.</p>' +
+          "</div></li>";
+        return;
+      }
+      LC.rows(list, items, function (item) {
         return '<li class="lc-list__item">' + severityBadge(item.level) +
           '<div class="lc-list__body"><p class="lc-list__title">' + item.title + "</p>" +
           '<p class="lc-list__text">' + item.detail + "</p></div></li>";
       });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("alerts-list"), error);
     });
   }
 
@@ -167,7 +177,9 @@
         return "<td>" + item.rule_code + "</td><td>" + severityBadge(item.severity) + "</td>" +
           "<td>" + LC.text(item.brand) + "</td><td>" + LC.text(item.model) + "</td>" +
           "<td>" + LC.text(item.offer_id) + "</td><td>" + item.message + "</td>";
-      });
+      }, { columns: 6, empty: code ? "По этому правилу нарушений нет" : "Нарушений нет — прогоните проверки" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("findings-body"), error);
     });
   }
 
@@ -179,7 +191,9 @@
           '<td class="lc-table__num">' + LC.num(item.findings) + "</td>" +
           '<td class="lc-table__num">' + LC.num(item.alerts) + "</td>" +
           '<td class="lc-table__num">' + LC.ratio(item.score) + "</td>";
-      });
+      }, { columns: 6, empty: "Прогонов ещё не было" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("runs-body"), error);
     });
   }
 
@@ -202,6 +216,6 @@
   document.getElementById("run-qa").addEventListener("click", runQa);
   document.getElementById("rule-filter").addEventListener("change", loadFindings);
   refresh();
-})();
+});
 </script>
 {% endblock %}

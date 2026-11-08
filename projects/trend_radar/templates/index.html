@@ -14,6 +14,7 @@
     <span class="lc-chip">индекс цен</span>
     <span class="lc-chip">окно 6 мес.</span>
     <span class="lc-chip lc-chip--accent">выводы текстом</span>
+    <span class="lc-chip">цены в ₹ — валюта датасета</span>
   </div>
 </section>
 
@@ -91,7 +92,7 @@
 </section>
 
 <script>
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   function loadSummary() {
     LC.api("/api/trends/summary").then(function (data) {
       document.getElementById("kpi-offers").textContent = LC.num((data.last_period || {}).offers || 0);
@@ -109,7 +110,7 @@
       LCCharts.line(document.getElementById("demand-chart"), [
         { name: "объявления", color: "#000000", points: offers },
         { name: "индекс цены", color: "#ff5b06", points: scaleTo(index, offers, 100) }
-      ], { height: 320 });
+      ], { height: 320, empty: "Месячного ряда пока нет" });
     });
   }
 
@@ -123,7 +124,7 @@
       var palette = LCCharts.palette;
       LCCharts.line(document.getElementById("brands-chart"), series.map(function (item, index) {
         return { name: item.brand, color: palette[index % palette.length], points: item.points };
-      }), { height: 300 });
+      }), { height: 300, empty: "Нет брендов за выбранное окно" });
       document.getElementById("brands-legend").innerHTML = series.map(function (item, index) {
         return '<span class="lc-legend__item"><span class="lc-legend__dot" style="background:' + palette[index % palette.length] + '"></span>' + item.brand + "</span>";
       }).join("");
@@ -143,8 +144,15 @@
   }
 
   function fuelColor(fuel) {
-    var map = { "бензин": "#000000", "дизель": "#ff5b06", "CNG": "#757575", "LPG": "#b8b8b8", "Petrol": "#000000", "Diesel": "#ff5b06" };
-    return map[fuel] || "#757575";
+    var map = {
+      "petrol": "#000000",
+      "бензин": "#000000",
+      "diesel": "#ff5b06",
+      "дизель": "#ff5b06",
+      "cng": "#3538cd",
+      "lpg": "#ffb27a"
+    };
+    return map[String(fuel).toLowerCase()] || "#b8b8b8";
   }
 
   function loadCorrelations() {
@@ -154,7 +162,7 @@
           '<td class="lc-table__num">' + LC.ratio(item.r) + "</td>" +
           "<td>" + LC.badge(Math.abs(item.r) > 0.5 ? "info" : "warn", item.strength) + "</td>" +
           "<td>" + item.direction + "</td>";
-      });
+      }, { columns: 4, empty: "Недостаточно данных для корреляций" });
       var strongest = items.slice().sort(function (a, b) { return Math.abs(b.r) - Math.abs(a.r); })[0];
       if (strongest) {
         document.getElementById("corr-note").textContent =
@@ -173,7 +181,7 @@
           '<td class="lc-table__num">' + LC.num(item.early) + "</td>" +
           '<td class="lc-table__num">' + LC.num(item.recent) + "</td>" +
           '<td class="lc-table__num">' + LC.badge(level, LC.pct(item.growth, 1)) + "</td>";
-      });
+      }, { columns: 4, empty: "Недостаточно истории для сравнения брендов" });
     });
   }
 
@@ -183,6 +191,6 @@
   loadFuel();
   loadCorrelations();
   loadMovers();
-})();
+});
 </script>
 {% endblock %}

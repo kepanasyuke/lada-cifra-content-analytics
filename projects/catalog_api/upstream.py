@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query
 
 from shared.db import DictConnection, get_conn, scalar
 
-router = APIRouter(tags=["upstream"])
+router = APIRouter(prefix="/upstream", tags=["upstream"])
 
 CATALOG_SQL = """
 SELECT

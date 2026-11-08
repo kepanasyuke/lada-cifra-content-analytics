@@ -4,9 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#ffffff">
   <title>{% block title %}{{ app_title }}{% endblock %}</title>
   <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/css/lada.css">
+  <script src="/static/js/charts.js" defer></script>
+  <script src="/static/js/app.js" defer></script>
 </head>
 <body class="lc-body">
 <header class="lc-header">
@@ -39,8 +42,5 @@
     <span class="lc-footer__text">Демо-портфолио под вакансию {{ vacancy }} · данные: открытые источники</span>
   </div>
 </footer>
-
-<script src="/static/js/charts.js"></script>
-<script src="/static/js/app.js"></script>
 </body>
 </html>

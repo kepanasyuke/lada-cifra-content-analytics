@@ -92,7 +92,7 @@
 </section>
 
 <script>
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   var current = "AX";
   var cellMap = {};
 
@@ -107,11 +107,10 @@
         var code = row + column;
         var cell = cellMap[code] || { models: 0, value_mln: 0 };
         var node = document.createElement("button");
+        node.type = "button";
         node.className = "lc-matrix__cell";
-        node.style.border = "none";
-        node.style.textAlign = "left";
-        node.style.cursor = "pointer";
-        node.style.background = LCCharts.heat(cell.models, maxModels(cells));
+        node.setAttribute("aria-label", code + ": моделей " + cell.models);
+        node.style.setProperty("--heat", LCCharts.heat(cell.models, maxModels(cells)));
         node.innerHTML = '<span class="lc-matrix__count">' + LC.num(cell.models) + "</span>" +
           '<span class="lc-matrix__label">' + code + " · " + LC.ratio(cell.value_mln) + " млн</span>";
         node.addEventListener("click", function () { selectCell(code); });
@@ -163,19 +162,23 @@
       LC.table(document.getElementById("gaps-body"), items, function (item) {
         return "<td>" + item.brand + "</td><td>" + item.model + "</td>" +
           '<td class="lc-table__num">' + LC.num(item.catalog_trims) + "</td>";
-      });
+      }, { columns: 3, empty: "Пробелов нет: у каждой позиции каталога есть объявления" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("gaps-body"), error);
     });
     LC.api("/api/matrix/orphans?limit=40").then(function (items) {
       LC.table(document.getElementById("orphans-body"), items, function (item) {
         return "<td>" + item.brand + "</td><td>" + item.model + "</td>" +
           '<td class="lc-table__num">' + LC.num(item.offers) + "</td>";
-      });
+      }, { columns: 3, empty: "Все модели с объявлениями есть в каталоге" });
+    }).catch(function (error) {
+      LC.fail(document.getElementById("orphans-body"), error);
     });
   }
 
   loadSummary();
   loadCells();
   loadGaps();
-})();
+});
 </script>
 {% endblock %}

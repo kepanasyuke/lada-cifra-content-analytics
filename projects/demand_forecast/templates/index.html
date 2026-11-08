@@ -15,6 +15,7 @@
     <span class="lc-chip">MAPE на бэктесте</span>
     <span class="lc-chip lc-chip--accent">план закупки</span>
     <span class="lc-chip">только stdlib</span>
+    <span class="lc-chip">цены в ₹ — валюта датасета</span>
   </div>
 </section>
 
@@ -81,22 +82,25 @@
 </section>
 
 <script>
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   var horizonNode = document.getElementById("horizon");
+
+  function bandPoints(forecast) {
+    var upper = forecast.map(function (point) { return { x: point.x, y: point.high }; });
+    var lower = forecast.slice().reverse().map(function (point) { return { x: point.x, y: point.low }; });
+    return upper.concat(lower);
+  }
 
   function drawBand(history, forecast) {
     var palette = LCCharts.palette;
     var historyPoints = history.map(function (point) { return { x: point.x, y: point.y }; });
     var forecastPoints = forecast.map(function (point) { return { x: point.x, y: point.y }; });
-    var upper = forecast.map(function (point) { return { x: point.x, y: point.high }; });
-    var lower = forecast.map(function (point) { return { x: point.x, y: point.low }; });
     var joined = [{ x: history[history.length - 1].x, y: history[history.length - 1].y }].concat(forecastPoints);
     LCCharts.line(document.getElementById("chart"), [
-      { name: "коридор сверху", color: "#ffd8c2", points: upper },
-      { name: "коридор снизу", color: "#ffd8c2", points: lower },
+      { name: "коридор", points: bandPoints(forecast), closed: true, fill: "#ffe3d5" },
       { name: "факт", color: palette[0], points: historyPoints },
       { name: "прогноз", color: palette[1], points: joined }
-    ], { height: 340 });
+    ], { height: 340, empty: "Истории пока нет: нужны месячные данные" });
   }
 
   function loadData() {
@@ -104,7 +108,7 @@
     LC.api("/api/forecast/series?horizon=" + horizon).then(function (data) {
       document.getElementById("kpi-mape").textContent = LC.pct(data.mape, 2);
       document.getElementById("kpi-units").textContent = LC.num(data.plan.units);
-      document.getElementById("kpi-budget").textContent = LC.money(data.plan.budget_mln * 1000000);
+      document.getElementById("kpi-budget").textContent = LC.millions(data.plan.budget_mln);
       document.getElementById("kpi-history").textContent = LC.num(data.history.length);
       drawBand(data.history, data.forecast);
       LC.table(document.getElementById("plan-body"), data.forecast, function (item) {
@@ -112,7 +116,7 @@
           '<td class="lc-table__num">' + LC.num(Math.round(item.y)) + "</td>" +
           '<td class="lc-table__num">' + LC.num(Math.round(item.low)) + "</td>" +
           '<td class="lc-table__num">' + LC.num(Math.round(item.high)) + "</td>";
-      });
+      }, { columns: 4, empty: "Прогноз недоступен: истории меньше двух месяцев" });
     });
   }
 
@@ -121,7 +125,7 @@
       LCCharts.line(document.getElementById("backtest-chart"), [
         { name: "факт", color: "#000000", points: data.actual.map(function (value, index) { return { x: "t" + index, y: value }; }) },
         { name: "прогноз", color: "#ff5b06", points: data.predicted.map(function (value, index) { return { x: "t" + index, y: value }; }) }
-      ], { height: 260 });
+      ], { height: 260, empty: "Бэктест недоступен: мало истории" });
       document.getElementById("backtest-note").textContent = "MAPE " + LC.pct(data.mape, 2) + " на горизонте " + data.horizon + " мес.";
     });
   }
@@ -133,6 +137,6 @@
 
   loadData();
   loadBacktest();
-})();
+});
 </script>
 {% endblock %}

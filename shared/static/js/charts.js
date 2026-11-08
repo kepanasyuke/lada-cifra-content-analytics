@@ -3,6 +3,7 @@
   "use strict";
 
   var PALETTE = ["#000000", "#ff5b06", "#757575", "#b8b8b8", "#ffb27a", "#3538cd", "#067647"];
+  var MAX_DOTS = 40;
 
   function svgEl(name, attrs) {
     var el = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -18,6 +19,12 @@
     var norm = value / exp;
     var step = norm <= 1.2 ? 1.2 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
     return step * exp;
+  }
+
+  function compact(value) {
+    if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1).replace(".0", "") + "M";
+    if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1).replace(".0", "") + "k";
+    return String(Math.round(value * 100) / 100);
   }
 
   function emptyState(node, text) {
@@ -50,57 +57,101 @@
     }
   }
 
-  function compact(value) {
-    if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1).replace(".0", "") + "M";
-    if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1).replace(".0", "") + "k";
-    return String(Math.round(value * 100) / 100);
+  function collectX(series) {
+    var seen = Object.create(null);
+    var xs = [];
+    series.forEach(function (s) {
+      (s.points || []).forEach(function (point) {
+        var key = String(point.x);
+        if (seen[key]) return;
+        seen[key] = true;
+        xs.push(point.x);
+      });
+    });
+    return xs;
+  }
+
+  function indexOfX(xs) {
+    var map = Object.create(null);
+    xs.forEach(function (value, index) {
+      map[String(value)] = index;
+    });
+    return map;
+  }
+
+  function pathOf(points, xOf, yOf, closed) {
+    var parts = points.map(function (point, index) {
+      var x = xOf(point.x).toFixed(1);
+      var y = yOf(point.y).toFixed(1);
+      return (index === 0 ? "M" : "L") + x + " " + y;
+    });
+    return parts.join(" ") + (closed ? " Z" : "");
   }
 
   function lineChart(node, series, options) {
     var opts = options || {};
     var width = opts.width || 720;
     var height = opts.height || 280;
-    if (!series.length || !series[0].points.length) return emptyState(node, opts.empty);
+    var xs = collectX(series || []);
+    if (!xs.length) return emptyState(node, opts.empty);
 
-    var box = { left: 52, top: 12, width: width - 68, height: height - 44 };
+    var index = indexOfX(xs);
     var values = series.reduce(function (acc, s) {
-      return acc.concat(s.points.map(function (p) { return p.y; }));
+      return acc.concat(s.points.map(function (point) { return point.y; }));
     }, []);
     var max = niceMax(Math.max.apply(null, values));
-    var count = series[0].points.length;
+    var box = { left: 52, top: 12, width: width - 68, height: height - 44 };
+    var stepX = xs.length > 1 ? box.width / (xs.length - 1) : 0;
+    var xOf = function (value) {
+      return xs.length > 1 ? box.left + index[String(value)] * stepX : box.left + box.width / 2;
+    };
+    var yOf = function (value) {
+      return box.top + box.height - (value / max) * box.height;
+    };
 
     var svg = svgEl("svg", { viewBox: "0 0 " + width + " " + height, role: "img" });
     drawAxisGrid(svg, box, max, 4);
 
-    var stepX = count > 1 ? box.width / (count - 1) : box.width;
-    var xOf = function (i) { return box.left + (count > 1 ? i * stepX : box.width / 2); };
-    var yOf = function (v) { return box.top + box.height - (v / max) * box.height; };
-
-    series.forEach(function (s, si) {
-      var color = s.color || PALETTE[si % PALETTE.length];
-      var path = s.points
-        .map(function (p, i) { return (i === 0 ? "M" : "L") + xOf(i).toFixed(1) + " " + yOf(p.y).toFixed(1); })
-        .join(" ");
-      svg.appendChild(svgEl("path", { d: path, fill: "none", stroke: color, "stroke-width": 2.5, "stroke-linejoin": "round" }));
-      if (opts.dots !== false) {
-        s.points.forEach(function (p, i) {
-          svg.appendChild(svgEl("circle", { cx: xOf(i), cy: yOf(p.y), r: 2.8, fill: "#ffffff", stroke: color, "stroke-width": 2 }));
-        });
-      }
+    series.forEach(function (s, order) {
+      var color = s.color || PALETTE[order % PALETTE.length];
+      var closed = s.closed === true;
+      svg.appendChild(
+        svgEl("path", {
+          d: pathOf(s.points, xOf, yOf, closed),
+          fill: closed ? s.fill || "#ffe3d5" : "none",
+          stroke: closed ? s.stroke || "none" : color,
+          "stroke-width": closed ? 0 : 2.5,
+          "stroke-linejoin": "round",
+          "stroke-linecap": "round",
+        })
+      );
+      if (s.dots === false || opts.dots === false || xs.length > MAX_DOTS || closed) return;
+      s.points.forEach(function (point) {
+        svg.appendChild(
+          svgEl("circle", {
+            cx: xOf(point.x),
+            cy: yOf(point.y),
+            r: 2.8,
+            fill: "#ffffff",
+            stroke: color,
+            "stroke-width": 2,
+          })
+        );
+      });
     });
 
-    var labelStep = Math.ceil(count / 8);
-    series[0].points.forEach(function (p, i) {
-      if (i % labelStep !== 0 && i !== count - 1) return;
+    var labelStep = Math.ceil(xs.length / 8);
+    xs.forEach(function (value, position) {
+      if (position % labelStep !== 0 && position !== xs.length - 1) return;
       var text = svgEl("text", {
-        x: xOf(i),
+        x: xOf(value),
         y: box.top + box.height + 20,
         "text-anchor": "middle",
         "font-size": 10,
         fill: "#b8b8b8",
         "font-family": "JetBrains Mono, Consolas, monospace",
       });
-      text.textContent = p.x;
+      text.textContent = value;
       svg.appendChild(text);
     });
 
@@ -115,29 +166,29 @@
     if (!items.length) return emptyState(node, opts.empty);
 
     var box = { left: 52, top: 10, width: width - 68, height: height - 56 };
-    var max = niceMax(Math.max.apply(null, items.map(function (i) { return i.value; })));
+    var max = niceMax(Math.max.apply(null, items.map(function (item) { return item.value; })));
     var svg = svgEl("svg", { viewBox: "0 0 " + width + " " + height, role: "img" });
     drawAxisGrid(svg, box, max, 4);
 
     var slot = box.width / items.length;
     var barWidth = Math.max(6, Math.min(48, slot * 0.56));
 
-    items.forEach(function (item, i) {
-      var h = max === 0 ? 0 : (item.value / max) * box.height;
-      var x = box.left + i * slot + (slot - barWidth) / 2;
-      var y = box.top + box.height - h;
+    items.forEach(function (item, position) {
+      var barHeight = max === 0 ? 0 : (item.value / max) * box.height;
+      var x = box.left + position * slot + (slot - barWidth) / 2;
+      var y = box.top + box.height - barHeight;
       svg.appendChild(
         svgEl("rect", {
           x: x,
           y: y,
           width: barWidth,
-          height: Math.max(h, 2),
+          height: Math.max(barHeight, 2),
           rx: Math.min(6, barWidth / 2),
           fill: item.color || opts.color || "#000000",
         })
       );
       var label = svgEl("text", {
-        x: box.left + i * slot + slot / 2,
+        x: box.left + position * slot + slot / 2,
         y: box.top + box.height + 20,
         "text-anchor": "middle",
         "font-size": 10,
@@ -157,10 +208,11 @@
     node.innerHTML = rows
       .map(function (row) {
         var segments = row.segments
-          .map(function (s) {
+          .map(function (segment) {
             return (
-              '<span title="' + s.label + ': ' + s.value + '" style="width:' + s.share.toFixed(2) +
-              "%;background:" + (s.color || "#000000") + ';display:block;height:100%"></span>'
+              '<span title="' + segment.label + ': ' + segment.value +
+              '" style="width:' + segment.share.toFixed(2) + "%;background:" + (segment.color || "#000000") +
+              ';display:block;height:100%"></span>'
             );
           })
           .join("");
@@ -178,9 +230,8 @@
   }
 
   function heatScale(value, max) {
-    var t = max > 0 ? Math.min(1, value / max) : 0;
-    var light = 96 - Math.round(t * 34);
-    return "hsl(20, 88%, " + light + "%)";
+    var share = max > 0 ? Math.min(1, value / max) : 0;
+    return "hsl(20, 88%, " + (96 - Math.round(share * 34)) + "%)";
   }
 
   global.LCCharts = {

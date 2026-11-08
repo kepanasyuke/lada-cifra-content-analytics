@@ -152,6 +152,13 @@ a {
   color: var(--text-inverse);
 }
 
+.lc-nav__link:focus-visible,
+.lc-brand:focus-visible,
+.lc-header__vacancy:focus-visible {
+  outline: 2px solid var(--bg-accent);
+  outline-offset: 2px;
+}
+
 .lc-header__vacancy {
   font-size: 13px;
   color: var(--text-secondary);
@@ -407,6 +414,14 @@ a {
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-family: var(--mono);
+  white-space: nowrap;
+}
+
+.lc-table__num .lc-badge,
+.lc-table td .lc-badge {
+  font-family: var(--font);
+  font-variant-numeric: normal;
+  letter-spacing: 0;
 }
 
 .lc-table--compact td {
@@ -499,9 +514,18 @@ a {
   flex-direction: column;
   justify-content: space-between;
   gap: 6px;
-  background: var(--bg-secondary);
+  background: var(--heat, var(--bg-secondary));
   border: 1px solid transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: transform 0.12s ease;
+}
+
+.lc-matrix__cell:focus-visible {
+  outline: 2px solid var(--bg-accent);
+  outline-offset: 2px;
 }
 
 .lc-matrix__cell:hover {
@@ -630,6 +654,11 @@ a {
   background: var(--bg-secondary);
 }
 
+.lc-list__item .lc-badge {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
 .lc-list__body {
   flex: 1 1 auto;
   min-width: 0;
@@ -706,5 +735,24 @@ a {
   }
   .lc-card__value {
     font-size: 26px;
+  }
+  .lc-matrix {
+    grid-template-columns: 34px repeat(3, minmax(72px, 1fr));
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .lc-matrix__cell {
+    padding: 10px 8px;
+    min-height: 74px;
+  }
+  .lc-matrix__count {
+    font-size: 18px;
+  }
+  .lc-matrix__label {
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
+  .lc-chart {
+    padding: 16px;
   }
 }
