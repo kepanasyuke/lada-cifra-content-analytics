@@ -41,10 +41,13 @@ python -m venv .venv
 Проверки:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest projects -q   # 72 теста
-.\.venv\Scripts\python.exe -m ruff check .         # линтер, 0 замечаний
-.\.venv\Scripts\python.exe tools\style_check.py     # собственные правила стиля, 0 замечаний
+.\.venv\Scripts\python.exe -m pytest -q              # 298 тестов
+.\.venv\Scripts\python.exe -m ruff check .           # линтер, 0 замечаний
+.\.venv\Scripts\python.exe tools\style_check.py       # собственные правила стиля, 0 замечаний
 ```
+
+Тесты лежат в двух местах: `projects/*/tests` — доменная логика каждого сервиса,
+`tests/` — общий слой (`shared/`, `app.py`, `scripts/build_dataset.py`, `tools/`).
 
 ---
 

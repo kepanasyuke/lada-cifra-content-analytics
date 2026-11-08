@@ -65,6 +65,6 @@ max-complexity = 5
 known-first-party = ["shared", "projects"]
 
 [tool.pytest.ini_options]
-testpaths = ["projects"]
+testpaths = ["projects", "tests"]
 pythonpath = ["."]
 addopts = "-q --import-mode=importlib"

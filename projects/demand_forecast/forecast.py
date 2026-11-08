@@ -55,10 +55,20 @@ def initial_season(values: list[float], length: int, level: float) -> tuple[floa
     return tuple(value - level for value in values[:length])
 
 
+def season_capacity(values: list[float], length: int) -> int:
+    """Длина сезона, которую выдерживает история: короче не бывает ряда."""
+    return max(1, min(length, len(values)))
+
+
 def initial_state(values: list[float], length: int = SEASON_LENGTH) -> HwState:
     """Начальное состояние модели по первым двум сезонам."""
-    level = statistics.fmean(values[:length])
-    return HwState(level, initial_trend(values, length), initial_season(values, length, level))
+    return state_for(values, season_capacity(values, length))
+
+
+def state_for(values: list[float], size: int) -> HwState:
+    """Начальное состояние по выбранной длине сезона."""
+    level = statistics.fmean(values[:size])
+    return HwState(level, initial_trend(values, size), initial_season(values, size, level))
 
 
 def replaced(season: tuple[float, ...], position: int, value: float) -> tuple[float, ...]:
@@ -84,26 +94,33 @@ def next_state(state: HwState, level: float, position: int, value: float) -> HwS
 
 def step(state: HwState, value: float, position: int) -> HwState:
     """Один шаг сглаживания."""
-    level = ALPHA * (value - state.season[position]) + (1 - ALPHA) * (state.level + state.trend)
-    return next_state(state, level, position, value)
+    slot = position % len(state.season)
+    return next_state(state, level_at(state, value, slot), slot, value)
+
+
+def level_at(state: HwState, value: float, slot: int) -> float:
+    """Новый уровень ряда на шаге."""
+    return ALPHA * (value - state.season[slot]) + (1 - ALPHA) * (state.level + state.trend)
 
 
 def smooth(values: list[float], length: int = SEASON_LENGTH) -> HwState:
     """Прогон сглаживания по всей истории."""
+    size = season_capacity(values, length)
     return reduce(
-        lambda state, pair: step(state, pair[1], pair[0] % length),
+        lambda state, pair: step(state, pair[1], pair[0] % size),
         enumerate(values),
-        initial_state(values, length),
+        initial_state(values, size),
     )
 
 
 def states(values: list[float], length: int = SEASON_LENGTH) -> list[HwState]:
     """Состояния модели на каждом шаге истории."""
+    size = season_capacity(values, length)
     return list(
         accumulate(
             enumerate(values),
-            lambda state, pair: step(state, pair[1], pair[0] % length),
-            initial=initial_state(values, length),
+            lambda state, pair: step(state, pair[1], pair[0] % size),
+            initial=initial_state(values, size),
         )
     )
 
@@ -112,7 +129,7 @@ def fitted(values: list[float], length: int = SEASON_LENGTH) -> list[float]:
     """Сглаженные значения на истории."""
     history = states(values, length)[:-1]
     return [
-        round(state.level + state.trend + state.season[index % length], 2)
+        round(state.level + state.trend + state.season[index % len(state.season)], 2)
         for index, state in enumerate(history)
     ]
 
@@ -129,15 +146,20 @@ def sigma(values: list[float], length: int = SEASON_LENGTH) -> float:
     return round(deviation, 2)
 
 
-def projected(state: HwState, start: int, step: int, length: int) -> float:
+def projected(state: HwState, start: int, step: int) -> float:
     """Одна точка прогноза на шаге вперёд."""
-    point = state.level + (step + 1) * state.trend + state.season[(start + step) % length]
-    return round(max(0.0, point), 2)
+    offset = state.season[(start + step) % len(state.season)]
+    return round(max(0.0, state.level + (step + 1) * state.trend + offset), 2)
 
 
-def project(state: HwState, start: int, horizon: int, length: int = SEASON_LENGTH) -> list[float]:
+def project(state: HwState, start: int, horizon: int) -> list[float]:
     """Прогноз на горизонт вперёд."""
-    return [projected(state, start, step, length) for step in range(horizon)]
+    return [projected(state, start, step) for step in range(horizon)]
+
+
+def ahead(state: HwState, history: int, horizon: int) -> list[float]:
+    """Точки на горизонт от состояния модели и длины истории."""
+    return project(state, history % len(state.season), horizon)
 
 
 def mape(actual: list[float], predicted: list[float]) -> float:
@@ -154,7 +176,7 @@ def safe_horizon(values: list[float], horizon: int) -> int:
 def predict_tail(values: list[float], step_back: int, length: int) -> list[float]:
     """Прогноз последних месяцев по усечённой истории."""
     train = values[:-step_back]
-    return project(smooth(train, length), len(train) % length, step_back, length)
+    return ahead(smooth(train, length), len(train), step_back)
 
 
 def backtest(
@@ -272,7 +294,7 @@ def report_of_forecast(
 
 def project_points(values: list[float], length: int, horizon: int) -> list[float]:
     """Точки прогноза по истории."""
-    return project(smooth(values, length), len(values) % length, horizon, length)
+    return ahead(smooth(values, length), len(values), horizon)
 
 
 def build_points(values: list[float], rows: list[dict[str, Any]], horizon: int) -> dict[str, Any]:
