@@ -110,6 +110,25 @@ python -m venv .venv
 
 ---
 
+## Скриншоты
+
+Сняты скриптом `tools/shots.py` (Playwright, Chromium) на живом приложении:
+десктоп 1440 px и мобильный 390 px. Ошибки консоли и упавшие запросы собираются
+в `docs/screens/console.json` — там пусто.
+
+| Проект | 1440 px | 390 px |
+| --- | --- | --- |
+| 01. Каталог | ![](docs/screens/catalog-1440.png) | ![](docs/screens/catalog-390.png) |
+| 02. Качество контента | ![](docs/screens/qa-1440.png) | ![](docs/screens/qa-390.png) |
+| 03. Тренды | ![](docs/screens/trends-1440.png) | ![](docs/screens/trends-390.png) |
+| 04. Товарная матрица | ![](docs/screens/matrix-1440.png) | ![](docs/screens/matrix-390.png) |
+| 05. Прогноз потребности | ![](docs/screens/forecast-1440.png) | ![](docs/screens/forecast-390.png) |
+
+Пересобрать: `python -m uvicorn app:app --port 8125`, затем
+`python -m tools.shots --base http://127.0.0.1:8125 --out docs/screens`.
+
+---
+
 ## Правила кода
 
 Линтер — `ruff` со строгим набором (`E,F,W,I,N,UP,B,SIM,RET,C90,ANN,ARG,PLR,RUF,S`),

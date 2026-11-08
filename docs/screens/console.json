@@ -1,0 +1,16 @@
+{
+  "base": "http://127.0.0.1:8125",
+  "errors": [],
+  "screens": [
+    "catalog-1440.png",
+    "catalog-390.png",
+    "qa-1440.png",
+    "qa-390.png",
+    "trends-1440.png",
+    "trends-390.png",
+    "matrix-1440.png",
+    "matrix-390.png",
+    "forecast-1440.png",
+    "forecast-390.png"
+  ]
+}

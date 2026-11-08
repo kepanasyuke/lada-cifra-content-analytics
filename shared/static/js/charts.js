@@ -4,6 +4,9 @@
 
   var PALETTE = ["#000000", "#ff5b06", "#757575", "#b8b8b8", "#ffb27a", "#3538cd", "#067647"];
   var MAX_DOTS = 40;
+  var WATCHED = [];
+  var resizeHooked = false;
+  var resizeTimer = null;
 
   function svgEl(name, attrs) {
     var el = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -88,13 +91,46 @@
     return parts.join(" ") + (closed ? " Z" : "");
   }
 
+  function hostWidth(node, fallback) {
+    var measured = node.clientWidth || 0;
+    if (measured > 0) return Math.max(300, Math.min(900, measured));
+    return Math.max(320, fallback || 720);
+  }
+
+  function redrawWatched() {
+    resizeTimer = null;
+    WATCHED.forEach(function (node) {
+      if (node.__lcDraw && node.isConnected) node.__lcDraw();
+    });
+  }
+
+  function onResize() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(redrawWatched, 150);
+  }
+
+  function watch(node, draw) {
+    node.__lcDraw = draw;
+    if (WATCHED.indexOf(node) === -1) WATCHED.push(node);
+    if (resizeHooked) return;
+    resizeHooked = true;
+    global.addEventListener("resize", onResize);
+  }
+
   function lineChart(node, series, options) {
     var opts = options || {};
-    var width = opts.width || 720;
-    var height = opts.height || 280;
-    var xs = collectX(series || []);
+    watch(node, function () {
+      drawLine(node, series || [], opts);
+    });
+    drawLine(node, series || [], opts);
+  }
+
+  function drawLine(node, series, opts) {
+    var xs = collectX(series);
     if (!xs.length) return emptyState(node, opts.empty);
 
+    var width = hostWidth(node, opts.width || 720);
+    var height = opts.height || 280;
     var index = indexOfX(xs);
     var values = series.reduce(function (acc, s) {
       return acc.concat(s.points.map(function (point) { return point.y; }));
@@ -140,7 +176,8 @@
       });
     });
 
-    var labelStep = Math.ceil(xs.length / 8);
+    var maxLabels = Math.max(3, Math.floor(box.width / 82));
+    var labelStep = Math.ceil(xs.length / maxLabels);
     xs.forEach(function (value, position) {
       if (position % labelStep !== 0 && position !== xs.length - 1) return;
       var text = svgEl("text", {
@@ -161,16 +198,25 @@
 
   function barChart(node, items, options) {
     var opts = options || {};
-    var width = opts.width || 720;
-    var height = opts.height || 300;
+    watch(node, function () {
+      drawBar(node, items || [], opts);
+    });
+    drawBar(node, items || [], opts);
+  }
+
+  function drawBar(node, items, opts) {
     if (!items.length) return emptyState(node, opts.empty);
 
-    var box = { left: 52, top: 10, width: width - 68, height: height - 56 };
+    var width = hostWidth(node, opts.width || 720);
+    var height = opts.height || 300;
+    var slot = (width - 68) / items.length;
+    var rotated = slot < 46;
+    var bottom = rotated ? 86 : 56;
+    var box = { left: 52, top: 10, width: width - 68, height: height - bottom };
     var max = niceMax(Math.max.apply(null, items.map(function (item) { return item.value; })));
     var svg = svgEl("svg", { viewBox: "0 0 " + width + " " + height, role: "img" });
     drawAxisGrid(svg, box, max, 4);
 
-    var slot = box.width / items.length;
     var barWidth = Math.max(6, Math.min(48, slot * 0.56));
 
     items.forEach(function (item, position) {
@@ -187,19 +233,25 @@
           fill: item.color || opts.color || "#000000",
         })
       );
-      var label = svgEl("text", {
-        x: box.left + position * slot + slot / 2,
-        y: box.top + box.height + 20,
-        "text-anchor": "middle",
-        "font-size": 10,
-        fill: "#757575",
-      });
-      label.textContent = item.label;
-      svg.appendChild(label);
+      svg.appendChild(barLabel(item.label, box.left + position * slot + slot / 2, box.top + box.height, rotated));
     });
 
     node.innerHTML = "";
     node.appendChild(svg);
+  }
+
+  function barLabel(value, centerX, axisY, rotated) {
+    var label = svgEl("text", {
+      x: centerX,
+      y: axisY + (rotated ? 16 : 20),
+      "text-anchor": rotated ? "end" : "middle",
+      "font-size": 10,
+      fill: "#757575",
+    });
+    if (rotated) label.setAttribute("transform", "rotate(-38 " + centerX + " " + (axisY + 16) + ")");
+    label.textContent = value;
+    label.appendChild(svgEl("title", {})).textContent = value === undefined ? "" : String(value);
+    return label;
   }
 
   function stackedBar(node, rows, options) {

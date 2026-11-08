@@ -57,6 +57,7 @@
         <p class="lc-chart__hint">доля объявлений по месяцам</p>
       </div>
       <div id="fuel-chart"></div>
+      <div class="lc-legend" id="fuel-legend"></div>
     </div>
   </div>
 </section>
@@ -140,7 +141,22 @@ document.addEventListener("DOMContentLoaded", function () {
         byPeriod[row.period].segments.push({ label: row.fuel, value: row.offers, share: row.share_pct, color: fuelColor(row.fuel) });
       });
       LCCharts.stacked(document.getElementById("fuel-chart"), Object.keys(byPeriod).sort().slice(-8).map(function (key) { return byPeriod[key]; }));
+      document.getElementById("fuel-legend").innerHTML = fuelLegend(rows);
     });
+  }
+
+  function fuelLegend(rows) {
+    var seen = {};
+    var items = [];
+    rows.forEach(function (row) {
+      if (seen[row.fuel]) return;
+      seen[row.fuel] = true;
+      items.push({ label: row.fuel, color: fuelColor(row.fuel) });
+    });
+    return items.map(function (item) {
+      return '<span class="lc-legend__item"><span class="lc-legend__dot" style="background:' +
+        item.color + '"></span>' + item.label + "</span>";
+    }).join("");
   }
 
   function fuelColor(fuel) {
