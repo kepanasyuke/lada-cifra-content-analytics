@@ -13,11 +13,13 @@ from itertools import accumulate
 from pathlib import Path
 from typing import Any
 
-from shared.config import RAW_CSV, ROOT, WAREHOUSE
+from scripts.migrate import MIGRATIONS_DIR
+from scripts.migrate import run as run_migrations
+from shared.config import RAW_CSV, WAREHOUSE
 from shared.db import DictConnection, connect, executemany, fetch_one
 
-SCHEMA_SQL = ROOT / "sql" / "schema.sql"
-VIEWS_SQL = ROOT / "sql" / "views.sql"
+SCHEMA_SQL = MIGRATIONS_DIR / "0001_schema.sql"
+VIEWS_SQL = MIGRATIONS_DIR / "0002_views.sql"
 
 MULTIWORD_BRANDS = ("Mercedes-Benz", "Land Rover", "Ashok Leyland", "Maruti Suzuki", "Force Motors")
 MODEL_ALIASES = {
@@ -244,9 +246,15 @@ def apply_views(conn: DictConnection) -> DictConnection:
     return conn
 
 
+def migrate_into(conn: DictConnection) -> DictConnection:
+    """Применяет миграции к базе и возвращает соединение."""
+    run_migrations(conn)
+    return conn
+
+
 def init_db(path: Path) -> DictConnection:
-    """Создаёт пустую базу со схемой и вьюхами."""
-    return apply_views(apply_schema(connect(path)))
+    """Создаёт пустую базу: миграции, таблицы и вьюхи."""
+    return migrate_into(connect(path))
 
 
 def fresh_db(path: Path) -> DictConnection:

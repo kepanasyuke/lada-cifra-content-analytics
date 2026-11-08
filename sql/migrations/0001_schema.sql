@@ -1,4 +1,4 @@
--- Схема хранилища контент-аналитики LADA Цифра.
+﻿-- РЎС…РµРјР° С…СЂР°РЅРёР»РёС‰Р° РєРѕРЅС‚РµРЅС‚-Р°РЅР°Р»РёС‚РёРєРё LADA Р¦РёС„СЂР°.
 PRAGMA journal_mode = WAL;
 
 CREATE TABLE IF NOT EXISTS offers (
@@ -91,3 +91,4 @@ CREATE TABLE IF NOT EXISTS qa_alerts (
 
 CREATE INDEX IF NOT EXISTS ix_findings_run ON qa_findings (run_id);
 CREATE INDEX IF NOT EXISTS ix_alerts_run ON qa_alerts (run_id);
+

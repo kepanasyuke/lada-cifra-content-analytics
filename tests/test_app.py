@@ -54,7 +54,11 @@ def test_static_files_are_mounted():
 
 def test_report_mentions_project_count():
     report = application.report_of(8128, 2058)
-    assert report == {"status": "ok", "offers": 8128, "catalog": 2058, "projects": 5}
+    assert report["status"] == "ok"
+    assert report["offers"] == 8128
+    assert report["catalog"] == 2058
+    assert report["projects"] == 5
+    assert report["environment"]
 
 
 def test_counts_reads_warehouse(conn):

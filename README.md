@@ -30,10 +30,17 @@
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
-.\.venv\Scripts\python.exe -m scripts.build_dataset      # CSV -> data/warehouse.sqlite
+.\.venv\Scripts\python.exe -m scripts.migrate                      # схема и вьюхи
+.\.venv\Scripts\python.exe -m scripts.build_dataset                # CSV -> data/warehouse.sqlite
 .\.venv\Scripts\python.exe -m uvicorn app:app --port 8000
+```
+
+Или контейнером:
+
+```powershell
+docker compose up --build        # миграции, сборка витрины, uvicorn на :8000
 ```
 
 Открыть `http://127.0.0.1:8000/` — приложение перебросит на каталог.
@@ -41,13 +48,13 @@ python -m venv .venv
 Проверки:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q              # 298 тестов
+.\.venv\Scripts\python.exe -m pytest -q              # 353 теста
 .\.venv\Scripts\python.exe -m ruff check .           # линтер, 0 замечаний
 .\.venv\Scripts\python.exe tools\style_check.py       # собственные правила стиля, 0 замечаний
 ```
 
 Тесты лежат в двух местах: `projects/*/tests` — доменная логика каждого сервиса,
-`tests/` — общий слой (`shared/`, `app.py`, `scripts/build_dataset.py`, `tools/`).
+`tests/` — общий слой (`shared/`, `app.py`, `scripts/`, `tools/`) и инфраструктура.
 
 ---
 
@@ -147,23 +154,56 @@ python -m venv .venv
 
 ---
 
+## Продакшен-обвязка
+
+Приложение собирается в образ `python:3.12-slim`, работает не от root, а старт контейнера —
+`docker/entrypoint.sh`: миграции → сборка витрины при первом запуске → `uvicorn` с N воркерами.
+
+| Переменная | По умолчанию | Смысл |
+| --- | --- | --- |
+| `LADA_ENV` | `dev` | режим, попадает в `/health` |
+| `LADA_LOG_LEVEL` | `INFO` | уровень структурных логов |
+| `LADA_HOST` / `LADA_PORT` | `127.0.0.1` / `8000` | адрес uvicorn |
+| `LADA_WORKERS` | `1` | число процессов uvicorn |
+| `LADA_DATA_DIR` | `data/` | каталог витрины и исходников |
+| `LADA_CSV` | `<data>/raw/car_details_v3.csv` | исходная выгрузка |
+| `LADA_WAREHOUSE` | `<data>/warehouse.sqlite` | файл SQLite |
+
+- **Миграции** — `sql/migrations/*.sql` и `python -m scripts.migrate`. Применённые версии
+  пишутся в `schema_migrations`, повторный запуск ничего не делает; `scripts.build_dataset`
+  поднимает базу теми же миграциями, поэтому схема описана в одном месте.
+- **Логи** — одна JSON-строка на событие (`shared/logs.py`), каждый HTTP-запрос пишется
+  с методом, путём, статусом и длительностью.
+- **Проверки живости** — `/health` (живость и наличие витрины, при отсутствии схемы отвечает
+  `degraded`) и `/ready` (миграции + непустая витрина, иначе `503`); оба используются
+  в `HEALTHCHECK` образа и в `docker-compose.yml`.
+- **CI** — `.github/workflows/ci.yml`: `ruff`, `style_check`, сборка витрины и `pytest`
+  на Python 3.11 и 3.12, затем сборка образа и дымовой запрос к `/ready`.
+- **Зависимости** разделены: `requirements.txt` — только рантайм, `requirements-dev.txt` —
+  тесты, линтер и Playwright для скриншотов.
+
+---
+
 ## Структура
 
 ```
-app.py                      единое FastAPI-приложение, монтирует 5 сервисов
-shared/                     конфиг, доступ к SQLite, рендер страниц, дизайн-система
+app.py                      единое FastAPI-приложение, монтирует 5 сервисов, логи, /health, /ready
+shared/                     конфиг из окружения, доступ к SQLite, логи, рендер страниц, дизайн-система
   static/css/lada.css       фирменный стиль (палитра и типографика ladadigit.ru)
   static/js/charts.js       SVG-графики без внешних зависимостей
-sql/schema.sql              схема хранилища
-sql/views.sql               аналитические вьюхи (готовы как источники для Superset/Power BI)
+sql/migrations/             0001 схема и 0002 вьюхи (источники для Superset/Power BI)
+scripts/migrate.py          применение миграций с учётом версий
 projects/catalog_api/       проект 01 + эмулятор внешнего API
 projects/content_qa/        проект 02
 projects/trend_radar/       проект 03
 projects/matrix_optimizer/  проект 04
 projects/demand_forecast/   проект 05
 dags/                       два Airflow DAG (каталог, качество контента)
-scripts/build_dataset.py    сборка витрины из CSV
+scripts/build_dataset.py    сборка витрины из CSV миграциями
 tools/style_check.py        собственные правила стиля
+tests/                      общий слой и инфраструктурные проверки
+Dockerfile, docker-compose.yml, docker/entrypoint.sh   запуск одной командой
+.github/workflows/ci.yml    линтер, стиль, тесты, сборка образа
 data/raw/                   исходная выгрузка
 ```
 

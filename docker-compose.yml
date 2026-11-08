@@ -1,0 +1,31 @@
+services:
+  app:
+    build: .
+    image: lada-cifra-content-analytics:latest
+    container_name: lada-cifra-app
+    ports:
+      - "8000:8000"
+    environment:
+      LADA_ENV: prod
+      LADA_LOG_LEVEL: INFO
+      LADA_DATA_DIR: /data
+      LADA_WAREHOUSE: /data/warehouse.sqlite
+      LADA_HOST: 0.0.0.0
+      LADA_PORT: "8000"
+      LADA_WORKERS: "2"
+    volumes:
+      - lada-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=4)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped
+
+volumes:
+  lada-data:

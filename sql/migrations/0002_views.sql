@@ -1,4 +1,4 @@
--- Аналитические вьюхи. Готовы к подключению в Apache Superset / Power BI как источники.
+﻿-- РђРЅР°Р»РёС‚РёС‡РµСЃРєРёРµ РІСЊСЋС…Рё. Р“РѕС‚РѕРІС‹ Рє РїРѕРґРєР»СЋС‡РµРЅРёСЋ РІ Apache Superset / Power BI РєР°Рє РёСЃС‚РѕС‡РЅРёРєРё.
 DROP VIEW IF EXISTS v_offers;
 CREATE VIEW v_offers AS
 SELECT
@@ -101,3 +101,4 @@ LEFT JOIN (
     SELECT brand, model, COUNT(*) AS offers FROM offers GROUP BY brand, model
 ) o ON o.brand = c.brand AND o.model = c.model
 GROUP BY c.brand, c.model;
+
