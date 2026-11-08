@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import sqlite3
@@ -285,14 +286,60 @@ def stats(path: Path = WAREHOUSE) -> dict[str, Any]:
     return fetch_one(connect(path), query) or {}
 
 
-def summary_line() -> str:
+def total_offers(conn: sqlite3.Connection | None) -> int:
+    """Число объявлений в витрине; None-соединение даёт ноль."""
+    return int(fetch_one(conn, "SELECT COUNT(*) AS total FROM offers")["total"]) if conn else 0
+
+
+def close_if(conn: sqlite3.Connection | None) -> None:
+    """Закрывает соединение, если оно открыто."""
+    if conn is not None:
+        conn.close()
+
+
+def has_offers(path: Path = WAREHOUSE) -> bool:
+    """Есть ли в витрине хотя бы одно объявление."""
+    conn = connect(path) if Path(path).exists() else None
+    try:
+        return total_offers(conn) > 0
+    finally:
+        close_if(conn)
+
+
+def ensure(path: Path = WAREHOUSE, raw: Path = RAW_CSV) -> int:
+    """Собирает витрину, только если объявлений ещё нет."""
+    return 0 if has_offers(path) else rebuild(path, raw)
+
+
+def report_of(count: int) -> str:
     """Текст итогового отчёта сборки."""
-    return f"витрина: {WAREHOUSE}\nзагружено объявлений: {rebuild()}\nитог: {stats()}"
+    return f"витрина: {WAREHOUSE}\nзагружено объявлений: {count}\nитог: {stats()}"
 
 
-def main() -> None:
+def add_flag(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Флаг условной сборки."""
+    parser.add_argument("--if-empty", action="store_true", help="собирать только пустую витрину")
+    return parser
+
+
+def parser_with_flag() -> argparse.ArgumentParser:
+    """CLI сборщика витрины."""
+    return add_flag(argparse.ArgumentParser(description="Сборка витрины из CSV"))
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Аргументы командной строки."""
+    return parser_with_flag().parse_args(argv)
+
+
+def build_requested(args: argparse.Namespace) -> int:
+    """Сборка по флагу: пустая витрина или полная пересборка."""
+    return ensure() if args.if_empty else rebuild()
+
+
+def main(argv: list[str] | None = None) -> None:
     """Точка входа CLI."""
-    print(summary_line())
+    print(report_of(build_requested(parse_args(argv))))
 
 
 if __name__ == "__main__":

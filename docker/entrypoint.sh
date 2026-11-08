@@ -2,13 +2,8 @@
 # Старт контейнера: миграции, витрина при первом запуске, затем uvicorn.
 set -eu
 
-WAREHOUSE="${LADA_WAREHOUSE:-/data/warehouse.sqlite}"
-
 python -m scripts.migrate
-
-if [ ! -f "$WAREHOUSE" ]; then
-    python -m scripts.build_dataset
-fi
+python -m scripts.build_dataset --if-empty
 
 exec uvicorn app:app \
     --host "${LADA_HOST:-0.0.0.0}" \

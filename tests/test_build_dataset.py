@@ -331,3 +331,73 @@ def test_stats_reports_loaded_offers(empty_conn, tmp_path):
     build_dataset.load_offers(empty_conn, [ROW])
     path = empty_conn.execute("PRAGMA database_list").fetchone()[2]
     assert build_dataset.stats(path)["offers"] == 1
+
+
+def write_csv(path, rows):
+    """Пишет CSV с одной шапкой и переданными строками."""
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=RAW_HEADER)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
+def test_has_offers_false_for_missing_file(tmp_path):
+    assert build_dataset.has_offers(tmp_path / "нет.sqlite") is False
+
+
+def test_has_offers_false_for_empty_database(tmp_path):
+    path = tmp_path / "empty.sqlite"
+    build_dataset.init_db(path).close()
+    assert build_dataset.has_offers(path) is False
+
+
+def test_has_offers_true_after_load(empty_conn):
+    build_dataset.load_offers(empty_conn, [ROW])
+    path = empty_conn.execute("PRAGMA database_list").fetchone()[2]
+    assert build_dataset.has_offers(path) is True
+
+
+def test_ensure_builds_empty_warehouse(tmp_path):
+    raw = write_csv(tmp_path / "raw.csv", [ROW])
+    path = tmp_path / "warehouse.sqlite"
+    assert build_dataset.ensure(path, raw) == 1
+    assert build_dataset.has_offers(path) is True
+
+
+def test_ensure_skips_filled_warehouse(tmp_path):
+    raw = write_csv(tmp_path / "raw.csv", [ROW])
+    path = tmp_path / "warehouse.sqlite"
+    build_dataset.ensure(path, raw)
+    assert build_dataset.ensure(path, tmp_path / "нет.csv") == 0
+
+
+def test_parse_args_defaults_to_full_rebuild():
+    assert build_dataset.parse_args([]).if_empty is False
+
+
+def test_parse_args_accepts_if_empty():
+    assert build_dataset.parse_args(["--if-empty"]).if_empty is True
+
+
+def test_parser_describes_itself():
+    assert build_dataset.parser_with_flag().description == "Сборка витрины из CSV"
+
+
+def test_build_requested_uses_ensure(monkeypatch):
+    monkeypatch.setattr(build_dataset, "ensure", lambda: 7)
+    monkeypatch.setattr(build_dataset, "rebuild", lambda: 99)
+    assert build_dataset.build_requested(build_dataset.parse_args(["--if-empty"])) == 7
+
+
+def test_build_requested_defaults_to_rebuild(monkeypatch):
+    monkeypatch.setattr(build_dataset, "ensure", lambda: 7)
+    monkeypatch.setattr(build_dataset, "rebuild", lambda: 99)
+    assert build_dataset.build_requested(build_dataset.parse_args([])) == 99
+
+
+def test_main_prints_loaded_count(monkeypatch, capsys):
+    monkeypatch.setattr(build_dataset, "rebuild", lambda: 8128)
+    monkeypatch.setattr(build_dataset, "stats", lambda: {"offers": 8128})
+    build_dataset.main([])
+    assert "загружено объявлений: 8128" in capsys.readouterr().out

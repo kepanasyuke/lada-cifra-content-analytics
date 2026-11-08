@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     LADA_ENV=prod \
     LADA_DATA_DIR=/data \
+    LADA_CSV=/app/data/raw/car_details_v3.csv \
     LADA_WAREHOUSE=/data/warehouse.sqlite \
     LADA_HOST=0.0.0.0 \
     LADA_PORT=8000 \
